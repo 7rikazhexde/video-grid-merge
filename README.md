@@ -20,11 +20,11 @@ This project allows you to use FFmpeg to arrange video files stored in a specifi
 ### Environment building
 - If you are using **poetry**, please execute the following command。
 ```
-% git clone
+% git clone https://github.com/7rikazhexde/video-grid-merge.git
 % poetry install --only main
 ```
 
-- Create a virtual environment with **venv**, **pyenv**, etc. and execute the following commands.
+- Or create a virtual environment with **venv**, **pyenv**, etc. and execute the following commands.
 ```
 % pip install -r requirements.txt
 ```
