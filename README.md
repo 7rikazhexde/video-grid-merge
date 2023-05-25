@@ -2,6 +2,11 @@
 ## Overview
 This project allows you to use FFmpeg to arrange video files stored in a specified folder in a grid layout of NxN and generate the output.
 
+## Screenshot
+#### input video files: [sample1.mov](./video_grid_merge/media/input/sample1.mov), [sample2.mov](./video_grid_merge/media/input/sample2.mov), [sample3.mov](./video_grid_merge/media/input/sample3.mov), [sample4.mov](./video_grid_merge/media/input/sample4.mov)
+
+<img width="800" alt="sample-screenshot" src="https://github.com/7rikazhexde/video-grid-merge/assets/33836132/caccd49b-08a4-4c34-a8f4-8f82749716be">
+
 ## Note
  - The video file generation process depends on the number of input videos (square root is an integer and must be greater than or equal to 2).
  - For example, **4 videos** will be placed in a **2x2 layout**, and **9 videos** will be placed in a **3x3 layout**.
