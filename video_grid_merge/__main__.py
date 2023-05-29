@@ -6,6 +6,12 @@ import sys
 import time
 from typing import List, Tuple, Union
 
+# Get the path to the parent directory of video-grid-merge
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+# Add path of parent directory of video-grid-merge to sys.path
+sys.path.append(parent_dir)
+
 from video_grid_merge import delete_files as dlf
 from video_grid_merge import rename_files as rnf
 

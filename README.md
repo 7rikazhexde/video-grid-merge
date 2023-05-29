@@ -36,16 +36,21 @@ ffmpeg version 4.2.7-0ubuntu0.1 Copyright (c) 2000-2022 the FFmpeg developers
 > **The actual version information displayed here may vary from one system to another; but if a message such as ffmpeg: command not found appears instead of the version information, FFmpeg is not properly installed.**
 
 ### Environment building
-- If you are using **poetry**, please execute the following command
+#### Standard Version
+- If you are using **poetry**, please execute the following command  
 ```
-% git clone https://github.com/7rikazhexde/video-grid-merge.git
+% git clone --filter=blob:none --no-checkout https://github.com/7rikazhexde/video-grid-merge.git && cd video-grid-merge && git sparse-checkout init --cone && git sparse-checkout set video_grid_merge && git checkout
 % poetry install --only main
 ```
 
-- Or create a virtual environment with **venv**, **pyenv**, etc. and execute the following commands.
+#### Development version
+- It includes a static analysis tool and test data that performs the following  
 ```
-% pip install -r requirements.txt
+% git clone https://github.com/7rikazhexde/video-grid-merge.git
+% poetry install
 ```
+
+#### Settings
 - Input videos should be stored in the Input folder.
 - Specify the resolution of the output video.
 - The following two patterns are available for specifying the resolution. (Default is 1)
@@ -54,6 +59,7 @@ ffmpeg version 4.2.7-0ubuntu0.1 Copyright (c) 2000-2022 the FFmpeg developers
 	2. 640x480:  
        ```match_input_resolution_flag = false```
 
+### Example
 - Command Execution Result Example
 ```bash
 $ python video_grid_merge
