@@ -1,14 +1,13 @@
 import math
 import os
+import re
 import subprocess
 import sys
 import time
-from typing import List, Union
+from typing import List, Tuple, Union
 
-import cv2
-
-input_folder = "./video_grid_merge/media/input"
-output_folder = "./video_grid_merge/media/output"
+from video_grid_merge import delete_files as dlf
+from video_grid_merge import rename_files as rnf
 
 # video_extension_list
 video_extension_list = [".mov", ".mp4"]
@@ -21,22 +20,6 @@ temporarily_data_list = ["_TV", "_LP", ".txt"]
 
 # Set the log level to be displayed by ffmpeg
 ffmpeg_loglevel = "error"
-
-
-def rename_files_with_spaces(directory: str):
-    """Replace blank spaces.
-
-    Args:
-        directory (str): input data folder
-    """
-    for root, _, files in os.walk(directory):
-        for filename in files:
-            if " " in filename or "　" in filename:
-                new_filename = filename.replace(" ", "_").replace("　", "_")
-                old_path = os.path.join(root, filename)
-                new_path = os.path.join(root, new_filename)
-                os.rename(old_path, new_path)
-                print(f"Renamed: {old_path} to {new_path}")
 
 
 def get_video_files(input_folder: str, video_extension_list: List) -> List[str]:
@@ -54,7 +37,6 @@ def get_video_files(input_folder: str, video_extension_list: List) -> List[str]:
         for file in os.listdir(input_folder)
         if os.path.splitext(file)[1] in video_extension_list
     ]
-    # print(video_files)
     return video_files
 
 
@@ -85,10 +67,11 @@ def get_video_length_ffmpeg(file_path: str) -> Union[float, None]:
     return None
 
 
-def create_target_video(video_files: List[str]):
+def create_target_video(input_folder: str, video_files: List[str]):
     """Aligns the length of the video output with respect to the video specified in the argument using the FFmpeg command.
 
     Args:
+        input_folder (str): String representing the path to the folder containing the video file
         video_files (List[str]): List of strings containing paths to video files
     """
     # Get video length
@@ -170,28 +153,33 @@ def get_file_extension(filename: str) -> str:
     return ext
 
 
-def get_target_files(files: List[str]) -> List[str]:
+def get_target_files(folder: str, files: List[str]) -> List[str]:
     """Returns a list of video files from a folder that contains _TV and matches the extension list.
 
     Args:
+        folder (str): String representing the path to the folder containing the video file
         files (List[str]): List of files to be processed
 
     Returns:
         List[str]: List of paths to files that satisfy the condition
     """
     input_files = [
-        os.path.join(input_folder, file)
+        os.path.join(folder, file)
         for file in files
         if "_TV" in file and get_file_extension(file) in video_extension_list
     ]
     return input_files
 
 
-def get_output_filename_from_user(input_files: list[str]) -> str:
+def get_output_filename_from_user(
+    video_extension_list: List[str], input_files: List[str], output_folder: str
+) -> str:
     """Output file name input.
 
     Args:
+        video_extension_list (List[str]): List defining video file extensions
         input_files (list[str]): contains _TV and matches the extension list
+        output_folder (str): Path to output video file
 
     Returns:
         str: output file path
@@ -217,12 +205,59 @@ def get_output_filename_from_user(input_files: list[str]) -> str:
     return output_path
 
 
-def create_ffmpeg_command(input_files: list[str], output_path: str) -> str:
+def get_video_size(filename: str) -> Union[Tuple[int, int], None]:
+    """Retrieves the width and height of a video file.
+
+    Args:
+        filename (str): The path to the video file.
+
+    Returns:
+        tuple or None: A tuple (width, height) representing the width and height of the video,
+                       or None if the video size cannot be obtained.
+
+    Raises:
+        subprocess.CalledProcessError: If an error occurs while executing the ffprobe command.
+        Exception: For other exceptions that occur during execution.
+
+    Note:
+        This function relies on the ffprobe command to parse the video metadata.
+        If ffmpeg is installed, ffprobe is typically included, so there is no need to install it separately.
+        Make sure ffmpeg is installed on your system.
+    """
+    cmd = [
+        "ffprobe",
+        "-v",
+        f"{ffmpeg_loglevel}",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "csv=p=0:nk=1",
+        filename,
+    ]
+    try:
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode()
+        matches = re.findall(r"\d+", output)
+        if len(matches) >= 2:
+            width = int(matches[0])
+            height = int(matches[1])
+            return width, height
+        else:
+            raise Exception(f"Failed to extract video size from {filename}.")
+    except subprocess.CalledProcessError as e:
+        raise e
+    except Exception as e:
+        raise Exception(f"Error: {str(e)}")
+
+
+def create_ffmpeg_command(
+    input_files: list[str], output_path: str, match_input_resolution_flag: bool
+) -> str:
     """Retrun FFmpeg command generation to create a grid-like video.
 
     Args:
-        input_files (list[str]): contains _TV and matches the extension list
-        output_path (str): output file path
+        input_files (list[str]): Contains _TV and matches the extension list
+        output_path (str): Output file path
+        match_input_resolution_flag (bool): Flag variable to extend the resolution of the output video by the resolution of the input video
 
     Returns:
         str: FFmpeg command
@@ -230,11 +265,7 @@ def create_ffmpeg_command(input_files: list[str], output_path: str) -> str:
     # Get the resolution of the input video
     if match_input_resolution_flag:
         if input_files:
-            first_file = input_files[0]
-            cap = cv2.VideoCapture(first_file)
-            video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            cap.release()
+            video_width, video_height = get_video_size(input_files[0])
     else:
         video_width = 640
         video_height = 480
@@ -285,71 +316,72 @@ def create_ffmpeg_command(input_files: list[str], output_path: str) -> str:
     return ffmpeg_command
 
 
-def delete_files_in_folder(input_folder: str):
-    """Deletes temporary data files in the specified folder.
+def is_integer_square_root_greater_than_four(n: int) -> bool:
+    """Checks if the integer square root of a number is greater than or equal to 2.
 
     Args:
-        input_folder (str): Path of the folder to be deleted
+        n (int): The number to check.
+
+    Returns:
+        bool: True if the integer square root of `n` is greater than or equal to 2, False otherwise.
+
+    Example:
+        >>> is_integer_square_root_greater_than_four(25)
+        True
+        >>> is_integer_square_root_greater_than_four(2)
+        False
+
+    Note:
+        This function calculates the square root of `n` using the math.sqrt() function and checks if it is an integer.
+        The square root must be both an integer and greater than or equal to 2 for the function to return True.
     """
-    files_to_delete = [
-        file_name
-        for file_name in os.listdir(input_folder)
-        if any(x in file_name for x in temporarily_data_list)
-    ]
-    for file_name in files_to_delete:
-        file_path = os.path.join(input_folder, file_name)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-
-
-def delete_files_with_confirmation(path: str):
-    """Ask for confirmation before deleting a file in the specified path.
-
-    Args:
-        path (str): Path to be deleted
-    """
-    confirmation = input(
-        f"Files other than input videos were created in the following paths. Do you want to delete the created files?[y/N]\n{path}\n"
-    )
-    if confirmation.lower() == "y":
-        delete_files_in_folder(path)
-
-
-def is_integer_square_root_greater_than_four(n):
     root = math.sqrt(n)
-    return root == int(root) and root >= 2
+    if root == int(root) and root >= 2:
+        result = True
+    else:
+        result = False
+    return result
 
 
-def main():
+def main(input_folder=None, output_folder=None):
+    if input_folder is None:
+        input_folder = "./video_grid_merge/media/input"
+    if output_folder is None:
+        output_folder = "./video_grid_merge/media/output"
     # Start measurement of program elapsed time
     start = time.perf_counter()
     # Rename files under the folder
-    rename_files_with_spaces(input_folder)
+    rnf.rename_files_with_spaces(input_folder)
     # Input video information acquisition
     video_files = get_video_files(input_folder, video_extension_list)
-    print(len(video_files))
+    # print(len(video_files))
     if not is_integer_square_root_greater_than_four(int(len(video_files))):
         warning_message = f"Error: Please store more than 4 video files in the input folder.\ninput_folder: {input_folder}"
         sys.exit(warning_message)
     # Loop processing of input video & creation of combined video
-    create_target_video(video_files)
+    create_target_video(input_folder, video_files)
     # Create output folder
     os.makedirs(output_folder, exist_ok=True)
     # Retrieve and sort files in a folder
     files = os.listdir(input_folder)
     files = sorted(files)
     # Get the _TV.mov file as input video
-    input_files = get_target_files(files)
+    input_files = get_target_files(input_folder, files)
     # Specify output file name (user input)
-    output_path = get_output_filename_from_user(input_files)
+    output_path = get_output_filename_from_user(
+        video_extension_list, input_files, output_folder
+    )
     # Create FFmpeg command
-    ffmpeg_command = create_ffmpeg_command(input_files, output_path)
+    ffmpeg_command = create_ffmpeg_command(
+        input_files, output_path, match_input_resolution_flag
+    )
     # Execute FFmpeg command
     print("Video Grid Merge Start")
     subprocess.call(ffmpeg_command, shell=True)
     # Delete files other than input videos
-    # delete_files_with_confirmation(input_folder)
-    delete_files_in_folder(input_folder)
+    # dlf.delete_files_with_confirmation(temporarily_data_list, input_folder)
+    dlf.delete_files_in_folder(temporarily_data_list, input_folder)
+    # delete_files_in_folder(temporarily_data_list, input_folder)
     print("Video Grid Merge End And Output Success")
     print(f"File Output Complete: {output_path}")
     # Program elapsed time measurement complete & displayed
@@ -358,5 +390,5 @@ def main():
     print(f"Processing Time(s): {calc_elapsed_time}\n")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
