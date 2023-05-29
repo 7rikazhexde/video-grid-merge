@@ -17,7 +17,7 @@ def rename_files_with_spaces(directory):
                 print(f"Renamed: {old_path} to {new_path}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Specify folder path
     folder_path = "./video_grid_merge/media/input"
 
