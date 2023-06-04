@@ -55,6 +55,10 @@ def remote_tag_checker(remote: str, tag: Optional[str]) -> bool:
             ["git", "ls-remote", "--tags", remote], capture_output=True, text=True
         ).stdout.splitlines()
 
+        if not tags:
+            print("No tags found in the remote repository. Create a new tag.")
+            return True
+
         pattern = r"v(\d+\.\d+\.\d+)"
         match = re.search(pattern, tags[-1])
         if match:
@@ -99,7 +103,10 @@ def local_tag_checker(tag: Optional[str]) -> bool:
         tags = subprocess.run(
             ["git", "tag", "--sort", "-v:refname"], capture_output=True, text=True
         ).stdout.splitlines()
-        print(f"tags:{tags}")
+
+        if not tags:
+            print("No tags found in the local repository. Create a new tag")
+            return True
 
         if (
             tag is not None
