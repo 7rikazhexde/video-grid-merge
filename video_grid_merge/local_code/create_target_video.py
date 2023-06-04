@@ -1,5 +1,6 @@
 import os
 import subprocess
+from typing import Optional
 
 # ビデオ拡張子リスト
 video_extension_list = [".mov", ".mp4"]
@@ -16,7 +17,7 @@ video_files = [
 
 
 # 動画の長さを取得
-def get_video_length_ffmpeg(file_path):
+def get_video_length_ffmpeg(file_path: str) -> Optional[float]:
     command = ["ffmpeg", "-i", file_path]
     result = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     output = result.communicate()[0].decode("utf-8")
@@ -37,17 +38,18 @@ def get_video_length_ffmpeg(file_path):
 lengths = [
     get_video_length_ffmpeg(os.path.join(folder_path, file)) for file in video_files
 ]
-print(lengths)
 
 # 最も長い動画の長さ
-max_length = max(lengths)
+max_length = (
+    max(length for length in lengths if length is not None) if any(lengths) else None
+)
 
 # 最長の動画以外を結合処理のためのファイルに追記する
 for file, length in zip(video_files, lengths):
     if length == max_length:
         command = f"cp {os.path.join(folder_path, file)} {os.path.join(folder_path, os.path.splitext(file)[0])}_TV{os.path.splitext(file)[1]}"
         os.system(command)
-    elif length < max_length:
+    elif length and max_length and length < max_length:
         count = int(max_length / length)  # 結合回数を計算 (整数に変換)
         output_file = os.path.join(folder_path, f"list_{os.path.splitext(file)[0]}.txt")
 

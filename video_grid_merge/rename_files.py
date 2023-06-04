@@ -1,7 +1,7 @@
 import os
 
 
-def rename_files_with_spaces(directory):
+def rename_files_with_spaces(directory: str) -> None:
     """Replace blank spaces.
 
     Args:

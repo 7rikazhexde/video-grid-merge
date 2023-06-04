@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 # Get the path to the parent directory of video-grid-merge
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -28,7 +28,7 @@ temporarily_data_list = ["_TV", "_LP", ".txt"]
 ffmpeg_loglevel = "error"
 
 
-def get_video_files(input_folder: str, video_extension_list: List) -> List[str]:
+def get_video_files(input_folder: str, video_extension_list: List[str]) -> List[str]:
     """Returns a list of video file names that correspond to the list of extensions stored in the input folder.
 
     Args:
@@ -73,7 +73,7 @@ def get_video_length_ffmpeg(file_path: str) -> Union[float, None]:
     return None
 
 
-def create_target_video(input_folder: str, video_files: List[str]):
+def create_target_video(input_folder: str, video_files: List[str]) -> None:
     """Aligns the length of the video output with respect to the video specified in the argument using the FFmpeg command.
 
     Args:
@@ -87,15 +87,19 @@ def create_target_video(input_folder: str, video_files: List[str]):
     ]
     print(f"Input Video Time List: {lengths}")
 
-    # Get the length of the longest video
-    max_length = max(lengths)
+    # Filter out None values and get the length of the longest video
+    max_length = (
+        max(length for length in lengths if length is not None)
+        if any(lengths)
+        else None
+    )
 
     # Append all but the longest video to the file for the merging process
     for file, length in zip(video_files, lengths):
         if length == max_length:
             command = f"cp {os.path.join(input_folder, file)} {os.path.join(input_folder, os.path.splitext(file)[0])}_TV{os.path.splitext(file)[1]}"
             os.system(command)
-        elif length < max_length:
+        elif length and max_length and length < max_length:
             # Calculate the number of joins (converted to integer)
             count = int(max_length / length)
             output_file = os.path.join(
@@ -142,7 +146,7 @@ def create_target_video(input_folder: str, video_files: List[str]):
                 input_folder,
                 f"{os.path.splitext(video_file)[0]}_TV{os.path.splitext(video_file)[1]}",
             )
-            command = f"ffmpeg -i {input_file} -ss 0 -t {max_length} -c:v copy -c:a copy {output_file} -loglevel {ffmpeg_loglevel}"
+            command = f"ffmpeg -i {input_file} -ss 0 -t {max_length or 0} -c:v copy -c:a copy {output_file} -loglevel {ffmpeg_loglevel}"
             os.system(command)
 
 
@@ -258,7 +262,7 @@ def get_video_size(filename: str) -> Union[Tuple[int, int], None]:
 def create_ffmpeg_command(
     input_files: list[str], output_path: str, match_input_resolution_flag: bool
 ) -> str:
-    """Retrun FFmpeg command generation to create a grid-like video.
+    """Return FFmpeg command generation to create a grid-like video.
 
     Args:
         input_files (list[str]): Contains _TV and matches the extension list
@@ -268,57 +272,57 @@ def create_ffmpeg_command(
     Returns:
         str: FFmpeg command
     """
-    # Get the resolution of the input video
-    if match_input_resolution_flag:
-        if input_files:
-            video_width, video_height = get_video_size(input_files[0])
-    else:
+    ffmpeg_command = ""
+
+    if input_files:
         video_width = 640
         video_height = 480
 
-    # Calculate the number of input videos
-    N = len(input_files)
-    sqrt_N = int(math.sqrt(N))
+        if match_input_resolution_flag:
+            video_size = get_video_size(input_files[0])
+            if video_size is not None:
+                video_width, video_height = video_size
 
-    # Set output video size
-    # To extend the resolution for the input video, use the following
-    output_width = video_width * sqrt_N
-    output_height = video_height * sqrt_N
-    # To match the resolution of the input video, use the following
-    # output_width = video_width
-    # output_height = video_height
+        # Calculate the number of input videos
+        N = len(input_files)
+        sqrt_N = int(math.sqrt(N))
 
-    # Create FFmpeg command
-    ffmpeg_command = (
-        f"ffmpeg "
-        f'{"".join([f"-i {input_file} " for input_file in input_files])}'
-        f'-filter_complex "[0:v]scale={video_width}:{video_height}[v0]; '
-    )
+        # Set output video size
+        output_width = video_width * sqrt_N
+        output_height = video_height * sqrt_N
 
-    for i in range(1, N):
-        ffmpeg_command += f"[{i}:v]scale={video_width}:{video_height}[v{i}]; "
+        # Create FFmpeg command
+        ffmpeg_command = (
+            f"ffmpeg "
+            f'{"".join([f"-i {input_file} " for input_file in input_files])}'
+            f'-filter_complex "[0:v]scale={video_width}:{video_height}[v0]; '
+        )
 
-    for i in range(sqrt_N):
-        for j in range(sqrt_N):
-            index = i * sqrt_N + j
-            ffmpeg_command += f"[v{index}]"
+        for i in range(1, N):
+            ffmpeg_command += f"[{i}:v]scale={video_width}:{video_height}[v{i}]; "
 
-        ffmpeg_command += f"hstack=inputs={sqrt_N}[row{i+1}]; "
+        for i in range(sqrt_N):
+            for j in range(sqrt_N):
+                index = i * sqrt_N + j
+                ffmpeg_command += f"[v{index}]"
 
-    for i in range(sqrt_N):
-        ffmpeg_command += f"[row{i+1}]"
+            ffmpeg_command += f"hstack=inputs={sqrt_N}[row{i+1}]; "
 
-    ffmpeg_command += f'vstack=inputs={sqrt_N}[vstack]" '
+        for i in range(sqrt_N):
+            ffmpeg_command += f"[row{i+1}]"
 
-    ffmpeg_command += (
-        f'-map "[vstack]" '
-        f'{"".join([f"-map {i}:a " for i in range(len(input_files))])}'
-        f"-c:v libx264 -preset ultrafast "
-        f"-c:a copy "
-        f"-loglevel {ffmpeg_loglevel} "
-        f"-s {output_width}x{output_height} "
-        f"{output_path}"
-    )
+        ffmpeg_command += f'vstack=inputs={sqrt_N}[vstack]" '
+
+        ffmpeg_command += (
+            f'-map "[vstack]" '
+            f'{"".join([f"-map {i}:a " for i in range(len(input_files))])}'
+            f"-c:v libx264 -preset ultrafast "
+            f"-c:a copy "
+            f"-loglevel {ffmpeg_loglevel} "
+            f"-s {output_width}x{output_height} "
+            f"{output_path}"
+        )
+
     return ffmpeg_command
 
 
@@ -349,7 +353,9 @@ def is_integer_square_root_greater_than_four(n: int) -> bool:
     return result
 
 
-def main(input_folder=None, output_folder=None):
+def main(
+    input_folder: Optional[str] = None, output_folder: Optional[str] = None
+) -> None:
     if input_folder is None:
         input_folder = "./video_grid_merge/media/input"
     if output_folder is None:
