@@ -1,9 +1,9 @@
 import math
 import os
+import re
 import subprocess
 import time
-
-import cv2
+from typing import Tuple, Union
 
 start = time.perf_counter()
 
@@ -12,6 +12,9 @@ video_extension_list = [".mov", ".mp4"]
 
 # 入力動画の解像度に合わせるフラグ変数
 match_input_resolution_flag = True
+
+# Set the log level to be displayed by ffmpeg
+ffmpeg_loglevel = "error"
 
 # 入力フォルダ
 input_folder = "media"
@@ -28,9 +31,53 @@ files = sorted(files)
 
 
 # 拡張子を取得するヘルパー関数
-def get_extension(filename):
+def get_extension(filename: str) -> str:
     _, ext = os.path.splitext(filename)
     return ext
+
+
+def get_video_size(filename: str) -> Union[Tuple[int, int], None]:
+    """Retrieves the width and height of a video file.
+
+    Args:
+        filename (str): The path to the video file.
+
+    Returns:
+        tuple or None: A tuple (width, height) representing the width and height of the video,
+                       or None if the video size cannot be obtained.
+
+    Raises:
+        subprocess.CalledProcessError: If an error occurs while executing the ffprobe command.
+        Exception: For other exceptions that occur during execution.
+
+    Note:
+        This function relies on the ffprobe command to parse the video metadata.
+        If ffmpeg is installed, ffprobe is typically included, so there is no need to install it separately.
+        Make sure ffmpeg is installed on your system.
+    """
+    cmd = [
+        "ffprobe",
+        "-v",
+        f"{ffmpeg_loglevel}",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "csv=p=0:nk=1",
+        filename,
+    ]
+    try:
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode()
+        matches = re.findall(r"\d+", output)
+        if len(matches) >= 2:
+            width = int(matches[0])
+            height = int(matches[1])
+            return width, height
+        else:
+            raise Exception(f"Failed to extract video size from {filename}.")
+    except subprocess.CalledProcessError as e:
+        raise e
+    except Exception as e:
+        raise Exception(f"Error: {str(e)}")
 
 
 # 拡張子を取得して動画ファイルのみを選択
@@ -51,14 +98,17 @@ if not output_file:
     output_file = "combined_video{}".format(output_extension)
 output_path = os.path.join(output_folder, output_file)
 
-# 入力動画の解像度取得
-if match_input_resolution_flag:
-    if input_files:
-        first_file = input_files[0]
-        cap = cv2.VideoCapture(first_file)
-        video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.release()
+# Get the resolution of the input video
+if match_input_resolution_flag and input_files:
+    video_size = get_video_size(input_files[0])
+    if video_size is not None:
+        video_width, video_height = video_size
+    else:
+        print("入力ファイルの解像度を取得できませんでした。")
+        exit()
+elif not input_files:
+    print("入力ファイルが見つかりません。")
+    exit()
 else:
     video_width = 640
     video_height = 480

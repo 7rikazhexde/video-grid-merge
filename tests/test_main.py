@@ -5,7 +5,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import Any, Generator, List, Tuple
 
 import pytest
 
@@ -30,7 +30,7 @@ CONDITION = True
         # num: float # Non-int type
     ],
 )
-def test_is_integer_square_root_greater_than_four(num, expect):
+def test_is_integer_square_root_greater_than_four(num: int, expect: bool) -> None:
     assert main.is_integer_square_root_greater_than_four(num) == expect
 
 
@@ -46,7 +46,9 @@ def test_is_integer_square_root_greater_than_four(num, expect):
         # num: float # Non-int type
     ],
 )
-def test_get_video_size_ok(filename, expect_width, expect_height):
+def test_get_video_size_ok(
+    filename: str, expect_width: int, expect_height: int
+) -> None:
     # width, height = main.get_video_size(filename)
     # assert width == width
     # assert height == height
@@ -69,20 +71,20 @@ def test_get_video_size_ok(filename, expect_width, expect_height):
         ),
     ],
 )
-def test_get_video_size_none(filename, no_data_rtn):
+def test_get_video_size_none(filename: str, no_data_rtn: str) -> None:
     # with pytest.raises((subprocess.CalledProcessError, Exception)) as e:
     with pytest.raises((subprocess.CalledProcessError, Exception)):
         assert main.get_video_size(filename) is not None
         # assert str(e.value) == no_data_rtn
 
 
-def test_get_file_extension():
+def test_get_file_extension() -> None:
     assert main.get_file_extension("sample.txt") == ".txt"
     assert main.get_file_extension("sample1_TV.mov") == ".mov"
     assert main.get_file_extension("sample1_TV.mp4") == ".mp4"
 
 
-def test_get_target_files_c():
+def test_get_target_files_c() -> None:
     files = ["sample1_TV.mov", "test.log", "sample2_TV.mov", "menuettm.mp3", ""]
     input_folder = "./tests/test_data/input"
     expected_output = [
@@ -95,7 +97,7 @@ def test_get_target_files_c():
 
 
 @pytest.fixture
-def test_data_folder():
+def test_data_folder() -> Generator[str, None, None]:
     # 一時的なテストデータフォルダを作成する
     folder = tempfile.mkdtemp()
     # 必要なファイルを作成する
@@ -110,19 +112,19 @@ def test_data_folder():
     shutil.rmtree(folder)
 
 
-def test_get_target_files(test_data_folder):
+def test_get_target_files(test_data_folder: str) -> None:
     input_folder = test_data_folder
     files = ["sample1_TV.mov", "test.log", "sample2_TV.mov", "menuettm.mp3", ""]
     expected_output = [
-        os.path.join(input_folder, "sample1_TV.mov"),
-        os.path.join(input_folder, "sample2_TV.mov"),
+        os.path.join(input_folder, file)
+        for file in ["sample1_TV.mov", "sample2_TV.mov"]
     ]
     actual_output = main.get_target_files(input_folder, files)
     for path in expected_output:
         assert path in actual_output
 
 
-def test_get_video_length_ffmpeg():
+def test_get_video_length_ffmpeg() -> None:
     # Test case 1: Valid duration line
     file_path = "./tests/test_data/input/get_videos/sample1.mov"
     expected_duration = 62.43
@@ -135,7 +137,7 @@ def test_get_video_length_ffmpeg():
     assert duration is None
 
 
-def test_get_video_files():
+def test_get_video_files() -> None:
     input_folder = "./tests/test_data/input/get_videos"
     video_extension_list = [".mov", ".mp4"]
     expected_files = ["sample1.mov", "sample2.mov", "sample3.mov", "sample4.mov"]
@@ -159,30 +161,23 @@ def test_get_video_files():
 
 
 @pytest.fixture(scope="module")
-def test_directory(tmpdir_factory):
-    # print(f"call test_directory({tmpdir_factory})\n")
-    # テスト用のディレクトリを作成
-    test_dir = tmpdir_factory.mktemp("test_directory")
+def test_directory(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Generator[str, None, None]:
+    test_dir = tmp_path_factory.mktemp("test_directory")
 
-    # テスト用のファイルを作成
-    file_names = ["file 1.mp4", "file 2.mov", "file　3.mp4", "file　4.mov"]
+    file_names = ["file 1.mp4", "file 2.mov", "file 3.mp4", "file 4.mov"]
     for file_name in file_names:
-        file_path = os.path.join(test_dir, file_name)
+        file_path = test_dir / file_name
         with open(file_path, "w") as file:
             file.write("Test content")
 
-    # print(f'str(test_dir):{str(test_dir)}\n')
-    # テスト用の一時ディレクトリを作成し、
-    # test_rename_files_with_spaces実行前に
-    # そのパスをtest_rename_files_with_spacesに渡す
     yield str(test_dir)
 
-    # test_rename_files_with_spaces実行後にテスト用ディレクトリを削除
-    # print("\n\ncall shutil.rmtree(test_dir)")
     shutil.rmtree(test_dir)
 
 
-def test_rename_files_with_spaces(test_directory):
+def test_rename_files_with_spaces(test_directory: str) -> None:
     # print(f"call test_rename_files_with_spaces({test_directory})\n")
     # テスト用ディレクトリ内のファイルをリネーム
     rnf.rename_files_with_spaces(test_directory)
@@ -201,7 +196,9 @@ def test_rename_files_with_spaces(test_directory):
 
 
 @pytest.fixture(scope="module")
-def test_data(tmpdir_factory):
+def test_data(
+    tmpdir_factory: pytest.TempdirFactory,
+) -> Generator[Tuple[str, List[str]], None, None]:
     input_folder = tmpdir_factory.mktemp("input")
     video_files = ["sample3.mov", "sample1.mov", "sample4.mov", "sample2.mov"]
 
@@ -209,16 +206,16 @@ def test_data(tmpdir_factory):
     for file in video_files:
         shutil.copyfile(
             os.path.join("tests", "test_data", "input", "get_videos", file),
-            os.path.join(input_folder, file),
+            os.path.join(str(input_folder), file),
         )
 
     yield str(input_folder), video_files
 
     # Clean up the test input folder
-    shutil.rmtree(input_folder)
+    shutil.rmtree(str(input_folder))
 
 
-def test_create_target_video(test_data):
+def test_create_target_video(test_data: Tuple[str, List[str]]) -> None:
     input_folder, video_files = test_data
 
     # Run the function under test
@@ -235,23 +232,26 @@ def test_create_target_video(test_data):
         assert os.path.exists(os.path.join(input_folder, output_file))
 
 
-temporarily_data_list = ["_TV", "_LP", ".txt"]
+temporarily_data_list: List[str] = ["_TV", "_LP", ".txt"]
 
 
-def test_delete_files_in_folder(tmpdir):
-    folder = tmpdir.mkdir("test_folder")
-    file1 = folder.join("test1.mov")
-    file1.write("Test File 1")
-    file2 = folder.join("test1_TV.mov")
-    file2.write("Test File 2")
-    file3 = folder.join("test1_LP.mov")
-    file3.write("Test File 3")
-    file4 = folder.join("test1_list.txt")
-    file4.write("Test File 4")
-    file5 = folder.join("test1,tmp")
-    file5.write("Test File 5")
-    folder_path = Path(str(folder))  # フォルダパスをPathオブジェクトに変換
+def test_delete_files_in_folder(tmpdir: str) -> None:
+    folder_path = Path(tmpdir) / "test_folder"
+    folder_path.mkdir()
+
+    file1 = folder_path / "test1.mov"
+    file1.write_text("Test File 1")
+    file2 = folder_path / "test1_TV.mov"
+    file2.write_text("Test File 2")
+    file3 = folder_path / "test1_LP.mov"
+    file3.write_text("Test File 3")
+    file4 = folder_path / "test1_list.txt"
+    file4.write_text("Test File 4")
+    file5 = folder_path / "test1,tmp"
+    file5.write_text("Test File 5")
+
     dlf.delete_files_in_folder(temporarily_data_list, str(folder_path))
+
     assert file1.exists()
     assert not file2.exists()
     assert not file3.exists()
@@ -263,20 +263,28 @@ def test_delete_files_in_folder(tmpdir):
     assert os.path.exists(str(file5))
 
 
-def test_delete_files_with_confirmation_y(tmpdir, monkeypatch):
-    folder = tmpdir.mkdir("test_folder")
-    file1 = folder.join("test1.mov")
-    file1.write("Test File 1")
-    file2 = folder.join("test1_TV.mov")
-    file2.write("Test File 2")
-    file3 = folder.join("test1_LP.mov")
-    file3.write("Test File 3")
-    file4 = folder.join("test1_list.txt")
-    file4.write("Test File 4")
-    file5 = folder.join("test1,tmp")
-    file5.write("Test File 5")
+def test_delete_files_with_confirmation_y(tmpdir: str, monkeypatch: Any) -> None:
+    folder = Path(tmpdir)  # フォルダパスをPathオブジェクトに変換
+    folder.mkdir(parents=True, exist_ok=True)
+
+    file1 = folder.joinpath("test1.mov")
+    file1.write_text("Test File 1")
+    file2 = folder.joinpath("test1_TV.mov")
+    file2.write_text("Test File 2")
+    file3 = folder.joinpath("test1_LP.mov")
+    file3.write_text("Test File 3")
+    file4 = folder.joinpath("test1_list.txt")
+    file4.write_text("Test File 4")
+    file5 = folder.joinpath("test1.tmp")
+    file5.write_text("Test File 5")
 
     folder_path = Path(str(folder))  # フォルダパスをPathオブジェクトに変換
+
+    temporarily_data_list: List[str] = [
+        "_TV",
+        "_LP",
+        ".txt",
+    ]  # temporarily_data_list の適切な型を定義する
 
     # ユーザー入力を"y"としてモックする
     monkeypatch.setattr("builtins.input", lambda _: "y")
@@ -290,20 +298,24 @@ def test_delete_files_with_confirmation_y(tmpdir, monkeypatch):
     assert file5.exists()
 
 
-def test_delete_files_with_confirmation_N(tmpdir, monkeypatch):
-    folder = tmpdir.mkdir("test_folder")
-    file1 = folder.join("test1.mov")
-    file1.write("Test File 1")
-    file2 = folder.join("test1_TV.mov")
-    file2.write("Test File 2")
-    file3 = folder.join("test1_LP.mov")
-    file3.write("Test File 3")
-    file4 = folder.join("test1_list.txt")
-    file4.write("Test File 4")
-    file5 = folder.join("test1,tmp")
-    file5.write("Test File 5")
+def test_delete_files_with_confirmation_N(tmpdir: str, monkeypatch: Any) -> None:
+    folder = Path(tmpdir)  # フォルダパスをPathオブジェクトに変換
+    folder.mkdir(parents=True, exist_ok=True)
+
+    file1 = folder.joinpath("test1.mov")
+    file1.write_text("Test File 1")
+    file2 = folder.joinpath("test1_TV.mov")
+    file2.write_text("Test File 2")
+    file3 = folder.joinpath("test1_LP.mov")
+    file3.write_text("Test File 3")
+    file4 = folder.joinpath("test1_list.txt")
+    file4.write_text("Test File 4")
+    file5 = folder.joinpath("test1,tmp")
+    file5.write_text("Test File 5")
 
     folder_path = Path(str(folder))  # フォルダパスをPathオブジェクトに変換
+
+    temporarily_data_list: List[str] = []  # temporarily_data_list の適切な型を定義する
 
     # ユーザー入力を"N"としてモックする
     monkeypatch.setattr("builtins.input", lambda _: "N")
@@ -319,12 +331,14 @@ def test_delete_files_with_confirmation_N(tmpdir, monkeypatch):
 
 # テスト用の一時的な出力フォルダを作成
 @pytest.fixture
-def output_folder():
+def output_folder() -> Generator[str, None, None]:
     with tempfile.TemporaryDirectory() as temp_dir:
         yield temp_dir
 
 
-def test_get_output_filename_from_user_with_input_files(output_folder, monkeypatch):
+def test_get_output_filename_from_user_with_input_files(
+    output_folder: str, monkeypatch: Any
+) -> None:
     video_extension_list = [".mov", ".mp4"]
     input_files = ["file1_TV.mov", "file2_TV.mp4"]
 
@@ -339,7 +353,9 @@ def test_get_output_filename_from_user_with_input_files(output_folder, monkeypat
     assert output_path == expected_output_path
 
 
-def test_get_output_filename_from_user_without_input_files(output_folder, monkeypatch):
+def test_get_output_filename_from_user_without_input_files(
+    output_folder: str, monkeypatch: Any
+) -> None:
     video_extension_list = [".mov", ".mp4"]
     input_files: List[str] = []
 
@@ -355,8 +371,8 @@ def test_get_output_filename_from_user_without_input_files(output_folder, monkey
 
 
 def test_get_output_filename_from_user_with_invalid_extension(
-    output_folder, monkeypatch, capsys
-):
+    output_folder: str, monkeypatch: Any, capsys: Any
+) -> None:
     video_extension_list = [".mov", ".mp4"]
     input_files = ["file1_TV.mov", "file2_TV.mp4"]
 
@@ -376,7 +392,7 @@ def test_get_output_filename_from_user_with_invalid_extension(
     assert "Invalid file extension" in captured.out
 
 
-def test_create_ffmpeg_command_match_input_resolution_flag_true():
+def test_create_ffmpeg_command_match_input_resolution_flag_true() -> None:
     match_input_resolution_flag = True
     input_files = [
         "./tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
@@ -416,7 +432,7 @@ def test_create_ffmpeg_command_match_input_resolution_flag_true():
     assert ffmpeg_command == expected_ffmpeg_command
 
 
-def test_create_ffmpeg_command_match_input_resolution_flag_false():
+def test_create_ffmpeg_command_match_input_resolution_flag_false() -> None:
     match_input_resolution_flag = False
     input_files = [
         "./tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
@@ -467,46 +483,48 @@ def mock_input(monkeypatch):
 
 
 @pytest.fixture
-def mock_file_operations(monkeypatch):
-    def mock_rename_files_with_spaces(directory):
+def mock_file_operations(monkeypatch: Any) -> None:
+    def mock_rename_files_with_spaces(directory: str) -> None:
         pass
 
-    def mock_get_video_files(directory, video_extension_list):
+    def mock_get_video_files(
+        directory: str, video_extension_list: List[str]
+    ) -> List[str]:
         return ["video1.mp4", "video2.mp4"]
 
-    def mock_is_integer_square_root_greater_than_four(value):
+    def mock_is_integer_square_root_greater_than_four(value: Any) -> bool:
         return True
 
-    def mock_create_target_video(input_folder, video_files):
+    def mock_create_target_video(input_folder: str, video_files: List[str]) -> None:
         pass
 
-    def mock_makedirs(output_folder, exist_ok):
+    def mock_makedirs(output_folder: str, exist_ok: bool) -> None:
         pass
 
-    def mock_custom_sorted(files):
+    def mock_custom_sorted(files: List[str]) -> List[str]:
         files.sort()
         return files
 
-    def mock_get_target_files(input_folder, files):
+    def mock_get_target_files(input_folder: List[str], files: List[str]) -> List[str]:
         return ["file1_TV.mov", "file2_TV.mov"]
 
     def mock_get_output_filename_from_user(
-        video_extension_list, input_files, output_folder
-    ):
+        video_extension_list: List[str], input_files: List[str], output_folder: str
+    ) -> str:
         return "/path/to/output_file.mov"
 
     def mock_create_ffmpeg_command(
-        input_files, output_path, match_input_resolution_flag
-    ):
+        input_files: List[str], output_path: str, match_input_resolution_flag: bool
+    ) -> str:
         return "ffmpeg_command"
 
-    def mock_subprocess_call(ffmpeg_command, shell):
+    def mock_subprocess_call(ffmpeg_command: str, shell: str) -> None:
         pass
 
-    def mock_delete_files_in_folder(files, input_folder):
+    def mock_delete_files_in_folder(files: str, input_folder: List[str]) -> None:
         pass
 
-    def mock_exit(code):
+    def mock_exit(code: int) -> None:
         raise SystemExit(code)
 
     monkeypatch.setattr(rnf, "rename_files_with_spaces", mock_rename_files_with_spaces)
@@ -517,20 +535,20 @@ def mock_file_operations(monkeypatch):
         mock_is_integer_square_root_greater_than_four,
     )
     monkeypatch.setattr(main, "create_target_video", mock_create_target_video)
-    monkeypatch.setattr(main.os, "makedirs", mock_makedirs)
+    monkeypatch.setattr(os, "makedirs", mock_makedirs)  # 517行目
     monkeypatch.setattr(builtins, "sorted", mock_custom_sorted)
     monkeypatch.setattr(main, "get_target_files", mock_get_target_files)
     monkeypatch.setattr(
         main, "get_output_filename_from_user", mock_get_output_filename_from_user
     )
     monkeypatch.setattr(main, "create_ffmpeg_command", mock_create_ffmpeg_command)
-    monkeypatch.setattr(main.subprocess, "call", mock_subprocess_call)
+    monkeypatch.setattr(subprocess, "call", mock_subprocess_call)  # 524行目
     monkeypatch.setattr(dlf, "delete_files_in_folder", mock_delete_files_in_folder)
     monkeypatch.setattr(sys, "exit", mock_exit)
 
 
 # def test_main_success_case(capsys, mock_input, mock_file_operations):
-def test_main_success_case(capsys, mock_file_operations):
+def test_main_success_case(capsys: Any, mock_file_operations: Any) -> None:
     main.main()
 
     # 出力の検証
@@ -542,15 +560,14 @@ def test_main_success_case(capsys, mock_file_operations):
 
 
 def test_main_error_case(
-    # capsys, mock_input, mock_file_operations, monkeypatch
-    capsys,
-    mock_file_operations,
-    monkeypatch,
-):
-    def mock_get_video_files(directory, video_extension_list):
+    capsys: Any, mock_file_operations: Any, monkeypatch: Any
+) -> None:
+    def mock_get_video_files(
+        directory: str, video_extension_list: List[str]
+    ) -> List[str]:
         return []
 
-    def mock_is_integer_square_root_greater_than_four(value):
+    def mock_is_integer_square_root_greater_than_four(value: Any) -> bool:
         return False
 
     monkeypatch.setattr(main, "get_video_files", mock_get_video_files)

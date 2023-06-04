@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "video-grid-merge"
-version = "0.1.1"
+version = "0.2.0"
 description = "This project allows you to use FFmpeg to arrange video files stored in a specified folder in an NxN grid layout and generate the output."
 authors = ["7rikaz_h785 <7rikaz.h785.stat2ltas41lcijad@gmail.com>"]
 readme = "README.md"
@@ -19,10 +19,12 @@ vgmtest = "pytest -s -vv --cov=. --cov-branch --cov-report term-missing --cov-re
 isort = "poetry run isort video_grid_merge tests"
 black = "poetry run black video_grid_merge tests"
 flake8 = "poetry run flake8 video_grid_merge tests"
-mypy = "poetry run mypy video_grid_merge tests"
+mypy = "poetry run mypy"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+mdformat = "^0.7.16"
+tomlkit = "^0.11.8"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
@@ -34,6 +36,7 @@ flake8-pyproject = "^1.2.3"
 taskipy = "^1.11.0"
 pytest-cov = "^4.1.0"
 pytest-mock = "^3.10.0"
+pre-commit = "^3.3.2"
 
 [build-system]
 requires = ["poetry-core"]
@@ -48,10 +51,12 @@ target-version = ['py310']
 ignore = ["E402","E501","W503"]
 
 [tool.mypy]
+files = ["video_grid_merge","tests"]
 python_version = "3.10"
-no_strict_optional = true
+strict = true
+warn_return_any = false
 ignore_missing_imports = true
-check_untyped_defs = true
+scripts_are_modules = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests",]

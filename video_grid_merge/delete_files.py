@@ -4,7 +4,7 @@ from typing import List
 temporarily_data_list = ["_TV", "_LP", ".txt"]
 
 
-def delete_files_in_folder(tmp_data_list: List[str], input_folder: str):
+def delete_files_in_folder(tmp_data_list: List[str], input_folder: str) -> None:
     """Deletes temporary data files in the specified folder.
 
     Args:
@@ -22,7 +22,7 @@ def delete_files_in_folder(tmp_data_list: List[str], input_folder: str):
             os.remove(file_path)
 
 
-def delete_files_with_confirmation(tmp_data_list: List[str], path: str):
+def delete_files_with_confirmation(tmp_data_list: List[str], path: str) -> None:
     """Ask for confirmation before deleting a file in the specified path.
 
     Args:
