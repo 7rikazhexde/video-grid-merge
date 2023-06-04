@@ -87,6 +87,8 @@ Processing Time(s): 24.62715184
 
 ## Other
 
+### delete temporary data
+
 if you delete temporary data files in the specified folder
 
 - poetry
@@ -100,3 +102,12 @@ poetry run task vgmrm
 ```bash
 python video_grid_merge/delete_files.py
 ```
+
+### Synchronous update process of version and git tag in poetry.toml
+
+If you are forking this project, you can use the following function to synchronously update the version of poetry.toml and git tags.\
+Please check the link for instructions on how to use it if necessary.
+
+#### Reference
+
+[feat: Add Version update feature by pre-commit and post-commit #1](https://github.com/7rikazhexde/trial-test/issues/1)
