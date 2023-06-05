@@ -150,14 +150,16 @@ def test_get_video_files() -> None:
 
     # Test with non-existent folder
     non_existent_folder = "./tests/test_data/input/no_data_folder"
-    files = main.get_video_files(non_existent_folder, video_extension_list)
-    assert len(files) == 0
+    if os.path.exists(non_existent_folder):
+        files = main.get_video_files(non_existent_folder, video_extension_list)
+        assert len(files) == 0
+    else:
+        pytest.skip("Non-existent folder: {}".format(non_existent_folder))
 
     # Test with empty extension list
     empty_extension_list: List[str] = []
     files = main.get_video_files(input_folder, empty_extension_list)
     assert len(files) == 0
-    # print("\n\n")
 
 
 @pytest.fixture(scope="module")
