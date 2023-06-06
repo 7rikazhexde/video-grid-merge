@@ -1,6 +1,6 @@
 # video-grid-merge
 
-[![Test](https://github.com/rcmdnk/homebrew-file/actions/workflows/test.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/pytest.yaml)
+[![Test](https://github.com/rcmdnk/homebrew-file/actions/workflows/test.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/pytest.yml)
 [![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
 
 ## Overview
