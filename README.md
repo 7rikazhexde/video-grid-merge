@@ -1,8 +1,5 @@
 # video-grid-merge
 
-[![Test](https://github.com/rcmdnk/homebrew-file/actions/workflows/test.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/pytest.yml)
-[![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
-
 ## Overview
 
 This project allows you to use FFmpeg to arrange video files stored in a specified folder in a grid layout of NxN and generate the output.
@@ -110,6 +107,23 @@ python video_grid_merge/delete_files.py
 
 If you are forking this project, you can use the following function to synchronously update the version of poetry.toml and git tags.\
 Please check the link for instructions on how to use it if necessary.
+
+## About Test Result And Coverage
+
+[![Test](https://github.com/rcmdnk/homebrew-file/actions/workflows/test.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/pytest.yml)
+[![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
+
+I'm using Pytest to get test coverage, but currently there is the following problem with GitHub Action which is set in the project, and it is under suspension.
+
+- Specifying options for GitHub Action
+- Test Run
+
+If you want to check the coverage, run the following command to see the results.
+
+```bash
+poetry install
+poetry run task vgmtest
+```
 
 #### Reference
 
