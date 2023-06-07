@@ -40,7 +40,8 @@ jobs:
       - name: Run test
         id: pytest
         continue-on-error: true
-        run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=src tests/ | tee pytest-coverage.txt
+        #run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=. tests/ | tee pytest-coverage.txt
+        run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report=term-missing --cov=video_grid_merge | tee pytest-coverage.txt
       - name: Pytest coverage comment
         if: ${{ steps.is_main.outputs.flag == '1' }}
         id: coverageComment
