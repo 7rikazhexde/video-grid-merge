@@ -1,3 +1,6 @@
+# pre-commit stop running hooks after the first failure.
+fail_fast: true
+# A list of repository mappings
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     # Specify version or tag to use (as of 23.5.31)
@@ -34,6 +37,7 @@ repos:
         verbose: true
         files: ^pyproject\.toml$
 
+  # Repository local hooks
   - repo: local
     hooks:
     -   id: isort
@@ -72,8 +76,7 @@ repos:
         entry: poetry run mdformat README.md
         types: [markdown]
 
-  - repo: local
-    hooks:
+    # Original script
     - id: update-pyproject
       name: Update pyproject.toml version
       entry: poetry run python ci/update_pyproject_version.py
