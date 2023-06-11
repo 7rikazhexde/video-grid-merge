@@ -18,14 +18,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check is main
-        id: is_main
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ] && [ "${{ matrix.python-version }}" = "3.10" ];then
-            echo "flag=1" >> $GITHUB_OUTPUT
-          else
-            echo "flag=0" >> $GITHUB_OUTPUT
-          fi
       - uses: actions/checkout@v3
         with:
           persist-credentials: false
@@ -46,44 +38,15 @@ jobs:
       - name: Run test
         id: pytest
         continue-on-error: true
-        #run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=. tests/ | tee pytest-coverage.txt
         run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report=term-missing --cov=video_grid_merge | tee pytest-coverage.txt
       - name: Pytest coverage comment
-        if: ${{ steps.is_main.outputs.flag == '1' }}
         id: coverageComment
         uses: MishaKav/pytest-coverage-comment@main
         with:
+          hide-comment: true
           pytest-coverage-path: ./pytest-coverage.txt
-          hide-badge: false
-          hide-report: false
-          create-new-comment: false
-          hide-comment: false
-          report-only-changed-files: false
-          remove-link-from-badge: false
-          junitxml-title: My Pytest Result Summary Title
           junitxml-path: ./pytest.xml
-      - name: Update Readme in coverage branch
-        if: ${{ steps.is_main.outputs.flag == '1' }}
+      - name: Write job summary
+        id: check_status
         run: |
-          coverage=$(git branch -a|grep "remotes/origin/coverage$") || :
-          if [ -z "$coverage" ];then
-            git checkout --orphan coverage
-            git rm -rf .
-          else
-            git checkout coverage
-          fi
-          echo "[![pytest](https://github.com/$GITHUB_REPOSITORY/actions/workflows/pytest.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/pytest.yml)" > ./README.md
-          echo -e ${{ steps.coverageComment.outputs.summaryReport }} >> ./README.md
-      - name: Commit
-        if: ${{ steps.is_main.outputs.flag == '1' }}
-        run: |
-          git config --local user.email "33836132+github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add README.md
-          git commit -m "Update coverage"
-      - name: Push
-        if: ${{ steps.is_main.outputs.flag == '1' }}
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: coverage
+          echo -e ${{ steps.coverageComment.outputs.summaryReport }} >> $GITHUB_STEP_SUMMARY

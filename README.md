@@ -1,5 +1,7 @@
 # video-grid-merge
 
+[![Test](https://github.com/rcmdnk/homebrew-file/actions/workflows/test.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/pytest.yml)
+
 ## Overview
 
 This project allows you to use FFmpeg to arrange video files stored in a specified folder in a grid layout of NxN and generate the output.
@@ -106,26 +108,8 @@ python video_grid_merge/delete_files.py
 
 ### Synchronous update process of version and git tag in poetry.toml
 
-If you are forking this project, you can use the following function to synchronously update the version of poetry.toml and git tags.\
-Please check the link for instructions on how to use it if necessary.
-
-## Test Result And Coverage
-
-[![Test](https://github.com/rcmdnk/homebrew-file/actions/workflows/test.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/pytest.yml)
-[![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
-
-In this project, test results and coverage are aggregated in pytest.\
-However, the aggregate results (.coverage and htmlcov/) are excluded from commits for project management reasons.
-
-On the other hand, GitHub Action allows you to use the test environment. Test results can also be made public.\
-Currently, I'm working on publishing the aggregate results using the published Pytest Coverage Comment action, but I’m not able to realize the test results because the results are different between the virtual environment hosted by GitHub Action and the local PC environment. Therefore, GitHub Action has been stopped.
-
-Aggregate results can be viewed from the above batch.\
-I have already confirmed with pytest that there is no problem with the process in the project, but if you want to check the test results including coverage in the execution environment, please execute the following command and check the results.
-
-```bash
-poetry run task vgmtest
-```
+If you fork this project, you can use the following function to synchronously update the versions of poetry.toml and git tags.\
+If you need it, please see [the link](<(https://github.com/7rikazhexde/trial-test/issues/1)>) for instructions on how to use it.
 
 #### Reference
 
