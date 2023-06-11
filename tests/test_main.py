@@ -14,6 +14,7 @@ from video_grid_merge import delete_files as dlf
 from video_grid_merge import rename_files as rnf
 
 CONDITION = True
+base_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 # TestCase1
@@ -35,11 +36,16 @@ def test_is_integer_square_root_greater_than_four(num: int, expect: bool) -> Non
 
 
 # TestCase2
+file_path = os.path.join(base_dir, "test_data/input/get_videos")
+
+
 @pytest.mark.parametrize(
     ("filename", "expect_width", "expect_height"),
     [
-        ("tests/test_data/input/get_videos/sample1.mov", 640, 360),
-        ("tests/test_data/input/get_videos/sample2.mov", 640, 360),
+        # ("tests/test_data/input/get_videos/sample1.mov", 640, 360),
+        # ("tests/test_data/input/get_videos/sample2.mov", 640, 360),
+        (f"{file_path}/sample1.mov", 640, 360),
+        (f"{file_path}/sample2.mov", 640, 360),
         # The following cases are excluded from the test because they will result in errors due to type inconsistencies caused by mypy.
         # num=0
         # num<0
@@ -52,22 +58,30 @@ def test_get_video_size_ok(
     # width, height = main.get_video_size(filename)
     # assert width == width
     # assert height == height
+    print(f"filename: {filename}\n")
     assert main.get_video_size(filename) == (expect_width, expect_height)
 
 
 # TestCase3
+file_path = os.path.join(base_dir, "test_data/input")
+
+
 @pytest.mark.parametrize(
     ("filename", "no_data_rtn"),
     [
         # Error executing ffprobe command
         (
-            "tests/test_data/input/get_video_size_none_data/test.log",
-            "Error executing ffprobe command: tests/test_data/get_video_size_none_data/test.log: Invalid data found when processing input\n",
+            # "tests/test_data/input/get_video_size_none_data/test.log",
+            f"{file_path}/get_video_size_none_data/test.log",
+            # "Error executing ffprobe command: tests/test_data/get_video_size_none_data/test.log: Invalid data found when processing input\n",
+            f"Error executing ffprobe command: {base_dir}/test_data/get_video_size_none_data/test.log: Invalid data found when processing input\n",
         ),
         ("", "Error executing ffprobe command: : No such file or directory\n"),
         (
-            "tests/test_data/input/get_video_size_none_data/menuettm.mp3",
-            "Failed to extract video size from tests/test_data/get_video_size_none_data/menuettm.mp3.",
+            # "tests/test_data/input/get_video_size_none_data/menuettm.mp3",
+            f"{file_path}/get_video_size_none_data/menuettm.mp3",
+            # "Failed to extract video size from tests/test_data/get_video_size_none_data/menuettm.mp3.",
+            f"Failed to extract video size from {base_dir}/test_data/get_video_size_none_data/menuettm.mp3.",
         ),
     ],
 )
@@ -86,7 +100,8 @@ def test_get_file_extension() -> None:
 
 def test_get_target_files_c() -> None:
     files = ["sample1_TV.mov", "test.log", "sample2_TV.mov", "menuettm.mp3", ""]
-    input_folder = "tests/test_data/input"
+    # input_folder = "tests/test_data/input"
+    input_folder = os.path.join(base_dir, "test_data/input")
     expected_output = [
         os.path.join(input_folder, "sample1_TV.mov"),
         os.path.join(input_folder, "sample2_TV.mov"),
@@ -126,7 +141,6 @@ def test_get_target_files(test_data_folder: str) -> None:
 
 def test_get_video_length_ffmpeg() -> None:
     # Test case 1: Valid duration line
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     # file_path = "tests/test_data/input/get_videos/sample1.mov"
     file_path = os.path.join(base_dir, "test_data/input/get_videos/sample1.mov")
     expected_duration = 62.43
@@ -141,7 +155,6 @@ def test_get_video_length_ffmpeg() -> None:
 
 def test_get_video_files() -> None:
     # input_folder = "tests/test_data/input/get_videos"
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     input_folder = os.path.join(base_dir, "test_data/input/get_videos")
     video_extension_list = [".mov", ".mp4"]
     expected_files = ["sample1.mov", "sample2.mov", "sample3.mov", "sample4.mov"]
@@ -154,7 +167,6 @@ def test_get_video_files() -> None:
 
     # Test with non-existent folder
     # non_existent_folder = "tests/test_data/input/no_data_folder"
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     non_existent_folder = os.path.join(base_dir, "test_data/input/no_data_folder")
     if os.path.exists(non_existent_folder):
         files = main.get_video_files(non_existent_folder, video_extension_list)
@@ -402,7 +414,6 @@ def test_get_output_filename_from_user_with_invalid_extension(
 
 def test_create_ffmpeg_command_match_input_resolution_flag_true() -> None:
     match_input_resolution_flag = True
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     test_folder = os.path.join(base_dir, "test_data/input/ffmpeg_command_test")
     input_files = [
         # "tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
@@ -454,7 +465,6 @@ def test_create_ffmpeg_command_match_input_resolution_flag_true() -> None:
 
 def test_create_ffmpeg_command_match_input_resolution_flag_false() -> None:
     match_input_resolution_flag = False
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     test_folder = os.path.join(base_dir, "test_data/input/ffmpeg_command_test")
     input_files = [
         # "tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
