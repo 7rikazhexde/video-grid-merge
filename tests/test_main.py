@@ -38,8 +38,8 @@ def test_is_integer_square_root_greater_than_four(num: int, expect: bool) -> Non
 @pytest.mark.parametrize(
     ("filename", "expect_width", "expect_height"),
     [
-        ("./tests/test_data/input/get_videos/sample1.mov", 640, 360),
-        ("./tests/test_data/input/get_videos/sample2.mov", 640, 360),
+        ("tests/test_data/input/get_videos/sample1.mov", 640, 360),
+        ("tests/test_data/input/get_videos/sample2.mov", 640, 360),
         # The following cases are excluded from the test because they will result in errors due to type inconsistencies caused by mypy.
         # num=0
         # num<0
@@ -61,13 +61,13 @@ def test_get_video_size_ok(
     [
         # Error executing ffprobe command
         (
-            "./tests/test_data/input/get_video_size_none_data/test.log",
-            "Error executing ffprobe command: ./tests/test_data/get_video_size_none_data/test.log: Invalid data found when processing input\n",
+            "tests/test_data/input/get_video_size_none_data/test.log",
+            "Error executing ffprobe command: tests/test_data/get_video_size_none_data/test.log: Invalid data found when processing input\n",
         ),
         ("", "Error executing ffprobe command: : No such file or directory\n"),
         (
-            "./tests/test_data/input/get_video_size_none_data/menuettm.mp3",
-            "Failed to extract video size from ./tests/test_data/get_video_size_none_data/menuettm.mp3.",
+            "tests/test_data/input/get_video_size_none_data/menuettm.mp3",
+            "Failed to extract video size from tests/test_data/get_video_size_none_data/menuettm.mp3.",
         ),
     ],
 )
@@ -86,7 +86,7 @@ def test_get_file_extension() -> None:
 
 def test_get_target_files_c() -> None:
     files = ["sample1_TV.mov", "test.log", "sample2_TV.mov", "menuettm.mp3", ""]
-    input_folder = "./tests/test_data/input"
+    input_folder = "tests/test_data/input"
     expected_output = [
         os.path.join(input_folder, "sample1_TV.mov"),
         os.path.join(input_folder, "sample2_TV.mov"),
@@ -126,7 +126,7 @@ def test_get_target_files(test_data_folder: str) -> None:
 
 def test_get_video_length_ffmpeg() -> None:
     # Test case 1: Valid duration line
-    file_path = "./tests/test_data/input/get_videos/sample1.mov"
+    file_path = "tests/test_data/input/get_videos/sample1.mov"
     expected_duration = 62.43
     duration = main.get_video_length_ffmpeg(file_path)
     assert duration == expected_duration
@@ -138,7 +138,7 @@ def test_get_video_length_ffmpeg() -> None:
 
 
 def test_get_video_files() -> None:
-    input_folder = "./tests/test_data/input/get_videos"
+    input_folder = "tests/test_data/input/get_videos"
     video_extension_list = [".mov", ".mp4"]
     expected_files = ["sample1.mov", "sample2.mov", "sample3.mov", "sample4.mov"]
 
@@ -149,7 +149,7 @@ def test_get_video_files() -> None:
         assert file in files
 
     # Test with non-existent folder
-    non_existent_folder = "./tests/test_data/input/no_data_folder"
+    non_existent_folder = "tests/test_data/input/no_data_folder"
     if os.path.exists(non_existent_folder):
         files = main.get_video_files(non_existent_folder, video_extension_list)
         assert len(files) == 0
@@ -397,19 +397,19 @@ def test_get_output_filename_from_user_with_invalid_extension(
 def test_create_ffmpeg_command_match_input_resolution_flag_true() -> None:
     match_input_resolution_flag = True
     input_files = [
-        "./tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
-        "./tests/test_data/input/ffmpeg_command_test/sample2_TV.mov",
-        "./tests/test_data/input/ffmpeg_command_test/sample3_TV.mov",
-        "./tests/test_data/input/ffmpeg_command_test/sample4_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample2_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample3_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample4_TV.mov",
     ]
-    output_path = "./tests/test_data/output/sample1_out.mov"
+    output_path = "tests/test_data/output/sample1_out.mov"
 
     expected_ffmpeg_command = (
         "ffmpeg "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample1_TV.mov "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample2_TV.mov "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample3_TV.mov "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample4_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample1_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample2_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample3_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample4_TV.mov "
         "-filter_complex "
         '"[0:v]scale=640:360[v0]; '
         "[1:v]scale=640:360[v1]; "
@@ -424,7 +424,7 @@ def test_create_ffmpeg_command_match_input_resolution_flag_true() -> None:
         "-c:a copy "
         "-loglevel error "
         "-s 1280x720 "
-        "./tests/test_data/output/sample1_out.mov"
+        "tests/test_data/output/sample1_out.mov"
     )
 
     ffmpeg_command = main.create_ffmpeg_command(
@@ -437,19 +437,19 @@ def test_create_ffmpeg_command_match_input_resolution_flag_true() -> None:
 def test_create_ffmpeg_command_match_input_resolution_flag_false() -> None:
     match_input_resolution_flag = False
     input_files = [
-        "./tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
-        "./tests/test_data/input/ffmpeg_command_test/sample2_TV.mov",
-        "./tests/test_data/input/ffmpeg_command_test/sample3_TV.mov",
-        "./tests/test_data/input/ffmpeg_command_test/sample4_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample1_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample2_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample3_TV.mov",
+        "tests/test_data/input/ffmpeg_command_test/sample4_TV.mov",
     ]
-    output_path = "./tests/test_data/output/sample1_out.mov"
+    output_path = "tests/test_data/output/sample1_out.mov"
 
     expected_ffmpeg_command = (
         "ffmpeg "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample1_TV.mov "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample2_TV.mov "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample3_TV.mov "
-        "-i ./tests/test_data/input/ffmpeg_command_test/sample4_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample1_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample2_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample3_TV.mov "
+        "-i tests/test_data/input/ffmpeg_command_test/sample4_TV.mov "
         "-filter_complex "
         '"[0:v]scale=640:480[v0]; '
         "[1:v]scale=640:480[v1]; "
@@ -464,7 +464,7 @@ def test_create_ffmpeg_command_match_input_resolution_flag_false() -> None:
         "-c:a copy "
         "-loglevel error "
         "-s 1280x960 "
-        "./tests/test_data/output/sample1_out.mov"
+        "tests/test_data/output/sample1_out.mov"
     )
 
     ffmpeg_command = main.create_ffmpeg_command(
@@ -579,7 +579,7 @@ def test_main_error_case(
         mock_is_integer_square_root_greater_than_four,
     )
 
-    input_folder = "./video_grid_merge/media/input"  # input_folderの値を指定
+    input_folder = "video_grid_merge/media/input"  # input_folderの値を指定
 
     with pytest.raises(SystemExit) as e:
         main.main(input_folder)
