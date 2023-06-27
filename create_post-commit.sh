@@ -32,7 +32,7 @@ if [ -f "$SCRIPT_DIR/.git/hooks/post-commit" ]; then
         create_post_commit "$SCRIPT_DIR/.git/hooks/post-commit.second"
         exit 0
     else
-        create_post_commit "$SCRIPT_DIR/.git/hooks/post-commit" "execute"
+        echo "Post-commit script creation canceled."
         exit 0
     fi
 fi

@@ -1,24 +1,20 @@
 [tool.poetry]
 name = "video-grid-merge"
-version = "0.2.16"
+version = "0.2.17"
 description = "This project allows you to use FFmpeg to arrange video files stored in a specified folder in an NxN grid layout and generate the output."
 authors = ["7rikaz_h785 <7rikaz.h785.stat2ltas41lcijad@gmail.com>"]
 readme = "README.md"
 license = "MIT"
 packages = [{include = "video_grid_merge"}]
 
-[tool.poetry.scripts]
-#video-grid-merge = "video_grid_merge.__main__:main"
-#delete-temporaliy-files = "video_grid_merge.local_code.delete_files:main"
-
 [tool.taskipy.tasks]
 vgmrun = "python video_grid_merge"
 vgmrn = "python video_grid_merge/rename_files.py"
 vgmrm = "python video_grid_merge/delete_files.py"
 vgmtest = "pytest -s -vv --cov=. --cov-branch --cov-report term-missing --cov-report html"
-isort = "poetry run isort video_grid_merge tests"
-black = "poetry run black video_grid_merge tests"
-flake8 = "poetry run flake8 video_grid_merge tests"
+black = "poetry run black video_grid_merge tests ci"
+ruffcheck = "poetry run ruff video_grid_merge tests ci"
+rufffix = "poetry run ruff video_grid_merge tests ci --fix"
 mypy = "poetry run mypy"
 
 [tool.poetry.dependencies]
@@ -27,16 +23,14 @@ mdformat = "^0.7.16"
 tomlkit = "^0.11.8"
 
 [tool.poetry.group.dev.dependencies]
-flake8 = "^6.0.0"
 black = "^23.3.0"
-isort = "^5.12.0"
 mypy = "^1.3.0"
 pytest = "^7.3.1"
-flake8-pyproject = "^1.2.3"
 taskipy = "^1.11.0"
 pytest-cov = "^4.1.0"
 pytest-mock = "^3.10.0"
 pre-commit = "^3.3.2"
+ruff = "^0.0.275"
 
 [build-system]
 requires = ["poetry-core"]
@@ -45,13 +39,42 @@ build-backend = "poetry.core.masonry.api"
 [tool.black]
 target-version = ['py310']
 
-[tool.isort]
+[tool.ruff]
+# Check Rules
+select = ["E", "F", "I"]
+# Ignore Error
+ignore = ["E402","E501"]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+per-file-ignores = {}
 
-[tool.flake8]
-ignore = ["E402","E501","W503"]
+# Assume Python 3.10.
+target-version = "py310"
 
 [tool.mypy]
-files = ["video_grid_merge","tests"]
+files = ["video_grid_merge","tests","ci"]
 python_version = "3.10"
 strict = true
 warn_return_any = false
