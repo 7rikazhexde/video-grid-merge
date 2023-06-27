@@ -40,26 +40,19 @@ repos:
   # Repository local hooks
   - repo: local
     hooks:
-    -   id: isort
-        name: isort
-        stages: [commit]
-        language: system
-        entry: poetry run isort video_grid_merge tests
-        types: [python]
-
     -   id: black
         name: black
         stages: [commit]
         language: system
-        entry: poetry run black video_grid_merge tests
+        entry: poetry run black video_grid_merge tests ci
         types: [python]
         exclude: resources_bin.py
 
-    -   id: flake8
-        name: flake8
+    -   id: ruff
+        name: ruff
         stages: [commit]
         language: system
-        entry: poetry run flake8 video_grid_merge tests
+        entry: poetry run ruff video_grid_merge tests ci --fix
         types: [python]
 
     -   id: mypy
