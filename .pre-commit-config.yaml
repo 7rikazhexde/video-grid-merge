@@ -3,8 +3,8 @@ fail_fast: true
 # A list of repository mappings
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    # Specify version or tag to use (as of 23.5.31)
-    rev: v4.4.0
+    # Specify version or tag to use (as of 24.2.24)
+    rev: v4.5.0
     hooks:
       # Remove spaces at end of lines except markdown
       - id: trailing-whitespace
@@ -22,7 +22,7 @@ repos:
   # https://python-poetry.org/docs/pre-commit-hooks/#usage
   - repo: https://github.com/python-poetry/poetry
     # Cannot be executed with local designation (as of 23.5.31)
-    rev: 1.5.1
+    rev: 1.7.1
     hooks:
       - id: poetry-check
         verbose: true
@@ -37,37 +37,30 @@ repos:
         verbose: true
         files: ^pyproject\.toml$
 
+  # Reference: https://github.com/DavidAnson/markdownlint-cli2#overview
+  # > markdownlint-cli is a traditional command-line interface for markdownlint.
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.36.0
+    hooks:
+      - id: markdownlint
+        args: ["--config", ".markdownlint.json", "README.md"]
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.2.0
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+      - id: ruff-format
+
   # Repository local hooks
   - repo: local
     hooks:
-    -   id: black
-        name: black
-        stages: [commit]
-        language: system
-        entry: poetry run black video_grid_merge tests ci
-        types: [python]
-        exclude: resources_bin.py
-
-    -   id: ruff
-        name: ruff
-        stages: [commit]
-        language: system
-        entry: poetry run ruff video_grid_merge tests ci --fix
-        types: [python]
-
     -   id: mypy
         name: mypy
         stages: [commit]
         language: system
         entry: poetry run mypy
         types: [python]
-
-    -   id: mdformat
-        name: mdformat
-        stages: [commit]
-        language: system
-        entry: poetry run mdformat README.md
-        types: [markdown]
 
     # Original script
     - id: update-pyproject

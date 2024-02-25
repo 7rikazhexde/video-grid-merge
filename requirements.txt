@@ -1,9 +1,9 @@
-markdown-it-py==2.2.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:5a35f8d1870171d9acc47b99612dc146129b631baf04970128b568f190d0cc30 \
-    --hash=sha256:7c9a5e412688bc771c67432cbfebcdd686c93ce6484913dccf06cb5a0bea35a1
-mdformat==0.7.16 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:76398d03baa394f331fb560fd0aed8257cf77b65b1c8146b92d395af16253662 \
-    --hash=sha256:99b105033207d2ab70ba1ced8e07327ed4ef1e0a6bc1c7c00207ea73ab502782
+markdown-it-py==3.0.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:355216845c60bd96232cd8d8c40e8f9765cc86f46880e43a8fd22dc1a1a8cab1 \
+    --hash=sha256:e3f60a94fa066dc52ec76661e37c851cb232d92f9886b15cb560aaada2df8feb
+mdformat==0.7.17 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:91ffc5e203f5814a6ad17515c77767fd2737fc12ffd8b58b7bb1d8b9aa6effaa \
+    --hash=sha256:a9dbb1838d43bb1e6f03bd5dca9412c552544a9bc42d6abb5dc32adfe8ae7c0d
 mdurl==0.1.2 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8 \
     --hash=sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba

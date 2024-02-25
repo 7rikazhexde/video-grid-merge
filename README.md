@@ -1,11 +1,14 @@
 # video-grid-merge
 
-[![Test](https://github.com/rcmdnk/homebrew-file/actions/workflows/test.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_summary.yml)
-[![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
-
-## Overview
-
 This project allows you to use FFmpeg to arrange video files stored in a specified folder in a grid layout of NxN and generate the output.
+
+## Pytest Coverage Comment
+
+[![Test Summary](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_summary.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_summary.yml) [![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
+
+## pytest-html
+
+[![ubuntu_latest](https://img.shields.io/badge/ubuntu_latest-url-success)](https://7rikazhexde.github.io/video-grid-merge/ubuntu-latest/report_page.html) [![macos-12](https://img.shields.io/badge/macos_12-url-success)](https://7rikazhexde.github.io/video-grid-merge/macos-12/report_page.html) [![windows-latest](https://img.shields.io/badge/windows_latest-url-success)](https://7rikazhexde.github.io/video-grid-merge/windows-latest/report_page.html)
 
 ## Screenshot
 
@@ -110,10 +113,10 @@ python video_grid_merge/delete_files.py
 ### Synchronous update process of version and git tag in poetry.toml
 
 If you fork this project, you can use the following function to synchronously update the versions of poetry.toml and git tags.\
-If you need it, please see [the link](<(https://github.com/7rikazhexde/trial-test/issues/1)>) for instructions on how to use it.
+If you need it, please see [the link](<(https://github.com/7rikazhexde/video-grid-merge/issues/1)>) for instructions on how to use it.
 
 #### Reference
 
-[feat: Add Version update feature by pre-commit and post-commit #1](https://github.com/7rikazhexde/trial-test/issues/1)
+[feat: Add Version update feature by pre-commit and post-commit #1](https://github.com/7rikazhexde/video-grid-merge/issues/1)
 
 [GitHub Action: pytest-coverage-comment](https://github.com/MishaKav/pytest-coverage-comment#example-usage)
