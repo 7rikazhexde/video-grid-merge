@@ -12,16 +12,19 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [macos-12, ubuntu-latest]
-        python-version: ['3.10', '3.9']
+        os: [macos-12, ubuntu-latest, windows-latest]
+        python-version: ['3.10', '3.11']
     runs-on: ${{ matrix.os }}
+    env:
+      TZ: 'Asia/Tokyo'
     permissions:
       contents: write
     steps:
       - name: Check is main
         id: is_main
+        shell: bash
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ] && [ "${{ matrix.python-version }}" = "3.10" ];then
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ] && [ "${{ matrix.python-version }}" = "3.11" ];then
             echo "flag=1" >> $GITHUB_OUTPUT
           else
             echo "flag=0" >> $GITHUB_OUTPUT
@@ -39,6 +42,9 @@ jobs:
       - name: Install FFmpeg (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install FFmpeg (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install ffmpeg
       - name: Install poetry
         run: pip install poetry
       - name: Poetry setup
@@ -63,7 +69,7 @@ jobs:
           report-only-changed-files: false
           remove-link-from-badge: false
           junitxml-path: ./pytest.xml
-          junitxml-title: "Pytest Result Summary (os: ubuntu-latest / python-version: 3.10)"
+          junitxml-title: "Pytest Result Summary (os: ubuntu-latest / python-version: 3.11)"
       - name: Update Readme in coverage branch
         if: ${{ steps.is_main.outputs.flag == '1' }}
         run: |
@@ -76,11 +82,13 @@ jobs:
           fi
           commit_hash=${GITHUB_SHA::8}
           commit_link="[$commit_hash](https://github.com/$GITHUB_REPOSITORY/tree/$commit_hash)"
-          echo "[![pytest](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_summary.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_summary.yml)" > ./README.md
+          echo "[![](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_branch.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_branch.yml)" > ./README.md
           echo -e ${{ steps.coverageComment.outputs.summaryReport }} >> ./README.md
-          echo -e "ℹ️ **Note**:  \n" >> ./README.md
-          echo -e "Commit: $commit_link\n" >> ./README.md
-          echo "Click on the `test summary` badge above to see the results of running pytest on multiple hosts." >> ./README.md
+          echo -e "> [!Note]" >> ./README.md
+          echo -e "> " >> ./README.md
+          echo -e "> Commit: $commit_link" >> ./README.md
+          echo -e "> " >> ./README.md
+          echo "> Click on the `test summary` badge above to see the results of running pytest on multiple hosts." >> ./README.md
 
       - name: Commit
         if: ${{ steps.is_main.outputs.flag == '1' }}

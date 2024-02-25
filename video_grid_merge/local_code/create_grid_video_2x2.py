@@ -92,7 +92,9 @@ output_extension = (
     get_extension(input_files[0]) if input_files else video_extension_list[0]
 )
 output_file = input(
-    "出力ファイル名を入力してください（デフォルトは 'combined_video{}'）: ".format(output_extension)
+    "出力ファイル名を入力してください（デフォルトは 'combined_video{}'）: ".format(
+        output_extension
+    )
 )
 if not output_file:
     output_file = "combined_video{}".format(output_extension)
