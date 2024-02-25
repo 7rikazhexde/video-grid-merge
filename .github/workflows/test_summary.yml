@@ -53,5 +53,6 @@ jobs:
           junitxml-path: ./pytest.xml
       - name: Write job summary
         id: check_status
+        shell: bash
         run: |
           echo -e ${{ steps.coverageComment.outputs.summaryReport }} >> $GITHUB_STEP_SUMMARY
