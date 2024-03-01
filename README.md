@@ -2,13 +2,15 @@
 
 This project allows you to use FFmpeg to arrange video files stored in a specified folder in a grid layout of NxN and generate the output.
 
+![Platform](https://img.shields.io/badge/Platform-Mac-ff69b4.svg) ![Platform](https://img.shields.io/badge/Platform-Linux-brightgreen.svg) ![Platform](https://img.shields.io/badge/Platform-WSL2-blue.svg)
+
 ## Pytest Coverage Comment
 
 [![Test Summary](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_summary.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_summary.yml) [![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
 
 ## pytest-html
 
-[![ubuntu_latest](https://img.shields.io/badge/ubuntu_latest-url-success)](https://7rikazhexde.github.io/video-grid-merge/ubuntu-latest/report_page.html) [![macos-12](https://img.shields.io/badge/macos_12-url-success)](https://7rikazhexde.github.io/video-grid-merge/macos-12/report_page.html) [![windows-latest](https://img.shields.io/badge/windows_latest-url-success)](https://7rikazhexde.github.io/video-grid-merge/windows-latest/report_page.html)
+[![ubuntu_latest](https://img.shields.io/badge/ubuntu_latest-url-success)](https://7rikazhexde.github.io/video-grid-merge/ubuntu-latest/report_page.html) [![macos-12](https://img.shields.io/badge/macos_12-url-success)](https://7rikazhexde.github.io/video-grid-merge/macos-12/report_page.html)
 
 ## Screenshot
 
@@ -20,6 +22,7 @@ This project allows you to use FFmpeg to arrange video files stored in a specifi
 
 ## Note
 
+- This project supports **Mac**, **Linux**, and **WSL2** as operating systems, **but not Windows**.
 - The video file generation process depends on the number of input videos (square root is an integer and must be greater than or equal to 2).
 - For example, **4 videos** will be placed in a **2x2 layout**, and **9 videos** will be placed in a **3x3 layout**.
 - Input videos should be stored in the input folder.
