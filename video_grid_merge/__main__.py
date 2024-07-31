@@ -326,6 +326,58 @@ def create_ffmpeg_command(
     )
 
 
+def create_ffmpeg_command_v2(
+    input_files: list[str], output_path: str, match_input_resolution_flag: bool
+) -> str:
+    """
+    Create an optimized ffmpeg command to merge multiple videos into a grid layout.
+
+    Args:
+        input_files (list[str]): A list of input video file paths.
+        output_path (str): The path for the output video file.
+        match_input_resolution_flag (bool): Whether to match the input video resolution.
+
+    Returns:
+        str: The optimized ffmpeg command string.
+    """
+    if not input_files:
+        return ""
+
+    video_size = get_video_size(input_files[0]) if match_input_resolution_flag else None
+    video_width, video_height = video_size or (640, 480)
+
+    N = len(input_files)
+    sqrt_N = int(math.sqrt(N))
+
+    output_width = video_width * sqrt_N
+    output_height = video_height * sqrt_N
+
+    filter_complex = "".join(
+        [
+            f"[{i}:v]scale={video_width}:{video_height}:force_original_aspect_ratio=decrease,pad={video_width}:{video_height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]; "
+            for i in range(N)
+        ]
+    )
+    filter_complex += "".join(
+        [
+            f'{"".join([f"[v{i*sqrt_N+j}]" for j in range(sqrt_N)])}hstack=inputs={sqrt_N}[row{i}]; '
+            for i in range(sqrt_N)
+        ]
+    )
+    filter_complex += (
+        f'{"".join([f"[row{i}]" for i in range(sqrt_N)])}vstack=inputs={sqrt_N}[vstack]'
+    )
+
+    return (
+        f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
+        f'-filter_complex "{filter_complex}" '
+        f'-map "[vstack]" {" ".join([f"-map {i}:a" for i in range(len(input_files))])} '
+        f"-c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k "
+        f"-threads 0 -loglevel {ffmpeg_loglevel} "
+        f"-s {output_width}x{output_height} {output_path}"
+    )
+
+
 def main(
     input_folder: Optional[str] = None, output_folder: Optional[str] = None
 ) -> None:
@@ -361,9 +413,16 @@ def main(
 
     create_target_video(input_folder, video_files)
     input_files = get_target_files(input_folder, sorted(os.listdir(input_folder)))
+    # """
     ffmpeg_command = create_ffmpeg_command(
         input_files, output_path, match_input_resolution_flag
     )
+    # """
+    """
+    ffmpeg_command = create_ffmpeg_command_v2(
+        input_files, output_path, match_input_resolution_flag
+    )
+    """
 
     print("Video Grid Merge Start")
     subprocess.run(ffmpeg_command, shell=True)

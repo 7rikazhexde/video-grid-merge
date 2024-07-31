@@ -617,6 +617,49 @@ def test_create_ffmpeg_command_output_size_calculation(
     assert "-s 3840x2160" in result
 
 
+def test_create_ffmpeg_command_v2_empty_input() -> None:
+    result = main.create_ffmpeg_command_v2([], "output.mp4", True)
+    assert result == ""
+
+
+def test_create_ffmpeg_command_v2_single_input(mock_get_video_size: Any) -> None:
+    result = main.create_ffmpeg_command_v2(["input1.mp4"], "output.mp4", True)
+    expected = (
+        f'ffmpeg -y -i input1.mp4 -filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,'
+        f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]; [v0]hstack=inputs=1[row0]; "
+        f'[row0]vstack=inputs=1[vstack]" -map "[vstack]" -map 0:a -c:v libx264 -preset veryfast '
+        f"-crf 23 -c:a aac -b:a 128k -threads 0 -loglevel {ffmpeg_loglevel} -s 1920x1080 output.mp4"
+    )
+    assert result == expected
+
+
+def test_create_ffmpeg_command_v2_multiple_inputs(mock_get_video_size: Any) -> None:
+    result = main.create_ffmpeg_command_v2(
+        ["input1.mp4", "input2.mp4", "input3.mp4", "input4.mp4"], "output.mp4", True
+    )
+    expected = (
+        f"ffmpeg -y -i input1.mp4 -i input2.mp4 -i input3.mp4 -i input4.mp4 "
+        f'-filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]; '
+        f"[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v1]; "
+        f"[2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v2]; "
+        f"[3:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v3]; "
+        f"[v0][v1]hstack=inputs=2[row0]; [v2][v3]hstack=inputs=2[row1]; "
+        f'[row0][row1]vstack=inputs=2[vstack]" '
+        f'-map "[vstack]" -map 0:a -map 1:a -map 2:a -map 3:a -c:v libx264 -preset veryfast '
+        f"-crf 23 -c:a aac -b:a 128k -threads 0 -loglevel {ffmpeg_loglevel} -s 3840x2160 output.mp4"
+    )
+    assert result == expected
+
+
+def test_create_ffmpeg_command_v2_output_size_calculation(
+    mock_get_video_size: Any,
+) -> None:
+    result = main.create_ffmpeg_command_v2(
+        ["input1.mp4", "input2.mp4", "input3.mp4", "input4.mp4"], "output.mp4", True
+    )
+    assert "-s 3840x2160" in result
+
+
 @pytest.fixture
 def mock_file_operations(monkeypatch: Any) -> None:
     def mock_rename_files_with_spaces(directory: str) -> None:
@@ -645,6 +688,13 @@ def mock_file_operations(monkeypatch: Any) -> None:
         input_files: List[str], output_path: str, match_input_resolution_flag: bool
     ) -> str:
         return "ffmpeg_command"
+
+    """for V2
+    def mock_create_ffmpeg_command_v2(
+        input_files: List[str], output_path: str, match_input_resolution_flag: bool
+    ) -> str:
+        return "ffmpeg_command"
+    """
 
     def mock_subprocess_run(ffmpeg_command: str, shell: bool) -> None:
         pass
@@ -680,6 +730,11 @@ def mock_file_operations(monkeypatch: Any) -> None:
     monkeypatch.setattr(
         "video_grid_merge.__main__.create_ffmpeg_command", mock_create_ffmpeg_command
     )
+    """for v2
+    monkeypatch.setattr(
+        "video_grid_merge.__main__.create_ffmpeg_command_v2", mock_create_ffmpeg_command_v2
+    )
+    """
     monkeypatch.setattr(subprocess, "run", mock_subprocess_run)
     monkeypatch.setattr(
         "video_grid_merge.__main__.dlf.delete_files_in_folder",
