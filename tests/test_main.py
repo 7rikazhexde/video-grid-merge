@@ -2,7 +2,6 @@ import builtins
 import os
 import subprocess
 import sys
-import termios
 import time
 from concurrent.futures import Future
 from typing import Any, Generator, List, Optional, Tuple
@@ -15,19 +14,55 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 from video_grid_merge import __main__ as main
 
 
-def test_reset_input_buffer(mocker: Any) -> None:
-    mock_tcflush = mocker.patch("termios.tcflush")
-    mock_system = mocker.patch("os.system")
+def test_reset_input_buffer_success(mocker: Any) -> None:
+    mock_fcntl = mocker.patch("fcntl.fcntl")
+    mock_select = mocker.patch("select.select")
+    mock_stdin = mocker.patch("sys.stdin")
+
+    # Simulate input being available once, then no more input
+    mock_select.side_effect = [([mock_stdin], [], []), ([], [], [])]
+    mock_stdin.read.return_value = "test input"
 
     main.reset_input_buffer()
 
-    mock_tcflush.assert_called_once_with(sys.stdin, termios.TCIFLUSH)
-    mock_system.assert_called_once_with("stty sane")
+    assert (
+        mock_fcntl.call_count == 3
+    )  # fcntl is called 3 times in the actual implementation
+    assert mock_select.call_count == 2
+    mock_stdin.read.assert_called_once_with(1024)
+
+
+def test_reset_input_buffer_no_input(mocker: Any) -> None:
+    mock_fcntl = mocker.patch("fcntl.fcntl")
+    mock_select = mocker.patch("select.select")
+    mock_stdin = mocker.patch("sys.stdin")
+
+    # Simulate no input being available
+    mock_select.return_value = ([], [], [])
+
+    main.reset_input_buffer()
+
+    assert (
+        mock_fcntl.call_count == 3
+    )  # fcntl is called 3 times in the actual implementation
+    mock_select.assert_called_once()
+    mock_stdin.read.assert_not_called()
+
+
+def test_reset_input_buffer_exception(mocker: Any) -> None:
+    mock_fcntl = mocker.patch("fcntl.fcntl")
+    mock_fcntl.side_effect = Exception("Test exception")
+    mock_sleep = mocker.patch("time.sleep")
+
+    main.reset_input_buffer()
+
+    mock_fcntl.assert_called_once()
+    mock_sleep.assert_called_once_with(0.1)
 
 
 def test_safe_input(mocker: Any) -> None:
-    mock_input = mocker.patch("builtins.input", return_value="test input")
     mock_reset = mocker.patch("video_grid_merge.__main__.reset_input_buffer")
+    mock_input = mocker.patch("builtins.input", return_value="test input")
 
     result = main.safe_input("Enter something: ")
 

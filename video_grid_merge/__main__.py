@@ -1,8 +1,9 @@
+import fcntl
 import math
 import os
+import select
 import subprocess
 import sys
-import termios
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
@@ -22,13 +23,26 @@ ffmpeg_loglevel = "error"
 
 def reset_input_buffer() -> None:
     """
-    Reset the input buffer and terminal settings.
+    Reset the input buffer.
 
-    This function flushes the input buffer using termios and resets the terminal
-    settings to their default state using the 'stty sane' command.
+    This function attempts to clear the input buffer in a way that's compatible
+    with Unix-like systems (including WSL2). It uses a non-blocking read approach
+    which is more reliable across different environments.
     """
-    termios.tcflush(sys.stdin, termios.TCIFLUSH)
-    os.system("stty sane")  # Reset terminal settings
+    try:
+        # Set stdin to non-blocking mode
+        old_flags = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
+        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, old_flags | os.O_NONBLOCK)
+
+        # Read and discard any available input
+        while len(select.select([sys.stdin], [], [], 0)[0]) > 0:
+            sys.stdin.read(1024)
+
+        # Restore original flags
+        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, old_flags)
+    except Exception:
+        # If anything goes wrong, fall back to a simple time delay
+        time.sleep(0.1)
 
 
 def safe_input(prompt: str) -> str:
@@ -307,8 +321,12 @@ def main(
         input_folder (Optional[str]): The path to the input folder. If None, a default path is used.
         output_folder (Optional[str]): The path to the output folder. If None, a default path is used.
     """
-    input_folder = input_folder or "./video_grid_merge/media/input"
-    output_folder = output_folder or "./video_grid_merge/media/output"
+    input_folder = input_folder or os.path.join(
+        ".", "video_grid_merge", "media", "input"
+    )
+    output_folder = output_folder or os.path.join(
+        ".", "video_grid_merge", "media", "output"
+    )
 
     start = time.perf_counter()
     rnf.rename_files_with_spaces(input_folder)
