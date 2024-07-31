@@ -1,9 +1,9 @@
-import fcntl
+import atexit
 import math
 import os
-import select
 import subprocess
 import sys
+import termios
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
@@ -20,29 +20,48 @@ match_input_resolution_flag = True
 temporarily_data_list = ["_TV", "_LP", ".txt"]
 ffmpeg_loglevel = "error"
 
+# Save original terminal settings
+original_terminal_settings = termios.tcgetattr(sys.stdin)
 
-def reset_input_buffer() -> None:
+
+def reset_terminal() -> None:
     """
-    Reset the input buffer.
+    Reset terminal settings to their original state.
 
-    This function attempts to clear the input buffer in a way that's compatible
-    with Unix-like systems (including WSL2). It uses a non-blocking read approach
-    which is more reliable across different environments.
+    This function restores the terminal settings to the state they were in
+    when the program started. It uses the global variable
+    'original_terminal_settings' to achieve this.
+
+    The function specifically:
+        1. Uses termios.tcsetattr to apply the original settings.
+        2. Applies the settings immediately but waits for output to drain first.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+
+    Side Effects:
+        - Modifies the current terminal settings.
+        - May affect how the terminal handles input and output after this call.
+
+    Notes:
+        - This function should typically be called before the program exits,
+          to ensure the terminal is left in a usable state.
+        - The global variable 'original_terminal_settings' must be properly
+          initialized before this function is called.
+        - This function is specifically for use on Unix-like systems and
+          may not work on other operating systems.
+
+    Raises:
+        termios.error: If there's an error setting the terminal attributes.
     """
-    try:
-        # Set stdin to non-blocking mode
-        old_flags = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
-        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, old_flags | os.O_NONBLOCK)
+    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_terminal_settings)
 
-        # Read and discard any available input
-        while len(select.select([sys.stdin], [], [], 0)[0]) > 0:
-            sys.stdin.read(1024)
 
-        # Restore original flags
-        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, old_flags)
-    except Exception:
-        # If anything goes wrong, fall back to a simple time delay
-        time.sleep(0.1)
+# Reset terminal settings upon program exit
+atexit.register(reset_terminal)
 
 
 def safe_input(prompt: str) -> str:
@@ -55,7 +74,9 @@ def safe_input(prompt: str) -> str:
     Returns:
         str: The user's input.
     """
-    reset_input_buffer()
+    # Clear input buffer
+    termios.tcflush(sys.stdin, termios.TCIFLUSH)
+
     return input(prompt)
 
 
@@ -321,12 +342,8 @@ def main(
         input_folder (Optional[str]): The path to the input folder. If None, a default path is used.
         output_folder (Optional[str]): The path to the output folder. If None, a default path is used.
     """
-    input_folder = input_folder or os.path.join(
-        ".", "video_grid_merge", "media", "input"
-    )
-    output_folder = output_folder or os.path.join(
-        ".", "video_grid_merge", "media", "output"
-    )
+    input_folder = input_folder or "./video_grid_merge/media/input"
+    output_folder = output_folder or "./video_grid_merge/media/output"
 
     start = time.perf_counter()
     rnf.rename_files_with_spaces(input_folder)
