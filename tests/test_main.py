@@ -1,12 +1,15 @@
 import builtins
+import io
 import os
 import subprocess
 import sys
+import termios
 import time
 from concurrent.futures import Future
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Any, Callable, Generator, List, Optional, Tuple
 
 import pytest
+from pytest import MonkeyPatch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,61 +17,108 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 from video_grid_merge import __main__ as main
 
 
-def test_reset_input_buffer_success(mocker: Any) -> None:
-    mock_fcntl = mocker.patch("fcntl.fcntl")
-    mock_select = mocker.patch("select.select")
-    mock_stdin = mocker.patch("sys.stdin")
+@pytest.fixture
+def mock_terminal(monkeypatch: MonkeyPatch) -> Tuple[Any, Any, Any]:
+    class MockObject:
+        def __init__(self) -> None:
+            self.call_args: Any = None
+            self.return_value: Any = None
 
-    # Simulate input being available once, then no more input
-    mock_select.side_effect = [([mock_stdin], [], []), ([], [], [])]
-    mock_stdin.read.return_value = "test input"
+        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+            self.call_args = (args, kwargs)
+            return self.return_value
 
-    main.reset_input_buffer()
+        def assert_called_once_with(self, *args: Any, **kwargs: Any) -> None:
+            assert self.call_args == (args, kwargs)
 
-    assert (
-        mock_fcntl.call_count == 3
-    )  # fcntl is called 3 times in the actual implementation
-    assert mock_select.call_count == 2
-    mock_stdin.read.assert_called_once_with(1024)
+    mock_tcsetattr = MockObject()
+    mock_tcgetattr = MockObject()
+    mock_stdin = MockObject()
 
+    monkeypatch.setattr(termios, "tcsetattr", mock_tcsetattr)
+    monkeypatch.setattr(termios, "tcgetattr", mock_tcgetattr)
+    monkeypatch.setattr(sys, "stdin", mock_stdin)
 
-def test_reset_input_buffer_no_input(mocker: Any) -> None:
-    mock_fcntl = mocker.patch("fcntl.fcntl")
-    mock_select = mocker.patch("select.select")
-    mock_stdin = mocker.patch("sys.stdin")
+    mock_tcgetattr.return_value = MockObject()
 
-    # Simulate no input being available
-    mock_select.return_value = ([], [], [])
-
-    main.reset_input_buffer()
-
-    assert (
-        mock_fcntl.call_count == 3
-    )  # fcntl is called 3 times in the actual implementation
-    mock_select.assert_called_once()
-    mock_stdin.read.assert_not_called()
+    return mock_tcsetattr, mock_tcgetattr, mock_stdin
 
 
-def test_reset_input_buffer_exception(mocker: Any) -> None:
-    mock_fcntl = mocker.patch("fcntl.fcntl")
-    mock_fcntl.side_effect = Exception("Test exception")
-    mock_sleep = mocker.patch("time.sleep")
+@pytest.mark.parametrize(
+    "user_input,expected",
+    [
+        ("test_input", "test_input"),
+        ("", ""),
+        ("long input with spaces", "long input with spaces"),
+    ],
+)
+def test_safe_input(
+    user_input: str,
+    expected: str,
+    mock_terminal: Tuple[Any, Any, Any],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    _, _, mock_stdin = mock_terminal
 
-    main.reset_input_buffer()
+    # 標準入力をモック
+    mock_stdin.readline = lambda: user_input + "\n"
 
-    mock_fcntl.assert_called_once()
-    mock_sleep.assert_called_once_with(0.1)
+    # 標準出力をキャプチャ
+    captured_output = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_output)
+
+    def mock_tcflush(*args: Any) -> None:
+        pass
+
+    monkeypatch.setattr(termios, "tcflush", mock_tcflush)
+
+    # input 関数をモック
+    def mock_input(prompt: str) -> str:
+        print(prompt, end="", flush=True)  # プロンプトを出力
+        return user_input
+
+    monkeypatch.setattr("builtins.input", mock_input)
+
+    result = main.safe_input("Enter input: ")
+
+    # 結果を検証
+    assert result == expected
+    assert captured_output.getvalue() == "Enter input: "
 
 
-def test_safe_input(mocker: Any) -> None:
-    mock_reset = mocker.patch("video_grid_merge.__main__.reset_input_buffer")
-    mock_input = mocker.patch("builtins.input", return_value="test input")
+def test_reset_terminal(
+    mock_terminal: Tuple[Any, Any, Any], monkeypatch: MonkeyPatch
+) -> None:
+    mock_tcsetattr, _, _ = mock_terminal
 
-    result = main.safe_input("Enter something: ")
+    # グローバル変数 original_terminal_settings をモック
+    mock_original_settings = object()
+    monkeypatch.setattr(main, "original_terminal_settings", mock_original_settings)
 
-    assert result == "test input"
-    mock_reset.assert_called_once()
-    mock_input.assert_called_once_with("Enter something: ")
+    main.reset_terminal()
+
+    # termios.tcsetattr が正しく呼び出されたことを確認
+    mock_tcsetattr.assert_called_once_with(
+        sys.stdin, termios.TCSADRAIN, mock_original_settings
+    )
+
+
+def test_atexit_register(monkeypatch: MonkeyPatch) -> None:
+    called_functions: List[Callable[[], None]] = []
+
+    def mock_register(func: Callable[[], None]) -> None:
+        called_functions.append(func)
+
+    monkeypatch.setattr("atexit.register", mock_register)
+
+    # モジュールを再インポートして atexit.register の呼び出しをトリガー
+    import importlib
+
+    importlib.reload(main)
+
+    # atexit.register が reset_terminal で呼び出されたことを確認
+    assert len(called_functions) == 1
+    assert called_functions[0] == main.reset_terminal
 
 
 def test_get_video_files(tmp_path: Any) -> None:
