@@ -84,3 +84,4 @@ scripts_are_modules = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests",]
+addopts = "--capture=no"

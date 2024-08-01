@@ -1,4 +1,5 @@
 import atexit
+import io
 import math
 import os
 import subprocess
@@ -21,8 +22,31 @@ temporarily_data_list = ["_TV", "_LP", ".txt"]
 ffmpeg_loglevel = "error"
 ffmpeg_cmd_version = "v1"
 
-# Save original terminal settings
-original_terminal_settings = termios.tcgetattr(sys.stdin)
+original_terminal_settings = None
+
+
+def init_terminal_settings() -> None:
+    """
+    Initialize and save the original terminal settings.
+
+    This function attempts to save the current terminal settings. If successful,
+    these settings can be used later to reset the terminal to its original state.
+
+    Global Variables:
+        original_terminal_settings (termios.tcgetattr): Stores the original terminal settings.
+
+    Raises:
+        termios.error: If there's an error getting the terminal attributes.
+        io.UnsupportedOperation: If the operation is not supported (e.g., in a non-interactive environment).
+    """
+    global original_terminal_settings
+    try:
+        original_terminal_settings = termios.tcgetattr(sys.stdin)
+    except (termios.error, io.UnsupportedOperation):
+        original_terminal_settings = None
+
+
+init_terminal_settings()
 
 
 def reset_terminal() -> None:
@@ -36,12 +60,6 @@ def reset_terminal() -> None:
     The function specifically:
         1. Uses termios.tcsetattr to apply the original settings.
         2. Applies the settings immediately but waits for output to drain first.
-
-    Parameters:
-        None
-
-    Returns:
-        None
 
     Side Effects:
         - Modifies the current terminal settings.
@@ -58,10 +76,15 @@ def reset_terminal() -> None:
     Raises:
         termios.error: If there's an error setting the terminal attributes.
     """
-    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_terminal_settings)
+    if original_terminal_settings is not None:
+        try:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_terminal_settings)
+        except termios.error:
+            # Silently pass if we're in a non-interactive environment
+            pass
 
 
-# Reset terminal settings upon program exit
+# Ensure terminal settings are reset when the program exits
 atexit.register(reset_terminal)
 
 
@@ -69,14 +92,27 @@ def safe_input(prompt: str) -> str:
     """
     Safely get input from user after resetting the input buffer.
 
+    This function clears the input buffer before prompting for user input,
+    which can help prevent unwanted input from being processed. The buffer
+    is only cleared in an interactive environment.
+
     Args:
         prompt (str): The prompt to display to the user.
 
     Returns:
         str: The user's input.
+
+    Notes:
+        - The input buffer is only cleared if original_terminal_settings is not None,
+          indicating we're in an interactive environment.
+        - If clearing the buffer fails, the function will still attempt to get user input.
     """
-    # Clear input buffer
-    termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    if original_terminal_settings is not None:
+        try:
+            termios.tcflush(sys.stdin, termios.TCIFLUSH)
+        except termios.error:
+            # If flushing fails, continue to input anyway
+            pass
 
     return input(prompt)
 
