@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-temporarily_data_list = ["_TV", "_LP", ".txt"]
+temporarily_data_list = ["_TV", ".txt"]
 
 
 def delete_files_in_folder(tmp_data_list: List[str], input_folder: str) -> None:
