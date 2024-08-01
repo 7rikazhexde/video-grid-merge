@@ -18,6 +18,8 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 
 from video_grid_merge import __main__ as main
 
+sys.stdin = io.StringIO()
+
 
 @pytest.fixture
 def mock_terminal(monkeypatch: MonkeyPatch) -> Tuple[Any, Any, Any]:
@@ -113,14 +115,107 @@ def test_atexit_register(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr("atexit.register", mock_register)
 
-    # モジュールを再インポートして atexit.register の呼び出しをトリガー
+    # Reimport the module and trigger a call to atexit.register
     import importlib
 
     importlib.reload(main)
 
-    # atexit.register が reset_terminal で呼び出されたことを確認
+    # Confirm that atexit.register was called with reset_terminal
     assert len(called_functions) == 1
     assert called_functions[0] == main.reset_terminal
+
+
+def test_reset_terminal_no_original_settings(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "original_terminal_settings", None)
+    main.reset_terminal()  # Verify that no errors occur
+
+
+def test_reset_terminal_with_error(monkeypatch: MonkeyPatch) -> None:
+    def mock_tcsetattr(*args: Any) -> None:
+        raise termios.error("Mock error")
+
+    monkeypatch.setattr(termios, "tcsetattr", mock_tcsetattr)
+    monkeypatch.setattr(main, "original_terminal_settings", object())
+    main.reset_terminal()  # Verify that no errors occur
+
+
+def test_safe_input_no_original_settings(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "original_terminal_settings", None)
+    monkeypatch.setattr("builtins.input", lambda _: "test")
+    result = main.safe_input("Prompt: ")
+    assert result == "test"
+
+
+def test_safe_input_with_error(monkeypatch: MonkeyPatch) -> None:
+    def mock_tcflush(*args: Any) -> None:
+        raise termios.error("Mock error")
+
+    monkeypatch.setattr(termios, "tcflush", mock_tcflush)
+    monkeypatch.setattr(main, "original_terminal_settings", object())
+    monkeypatch.setattr("builtins.input", lambda _: "test")
+    result = main.safe_input("Prompt: ")
+    assert result == "test"
+
+
+@pytest.mark.parametrize("version", ["v1", "v2", "invalid"])
+def test_main_all_versions(
+    version: str,
+    mock_file_operations: Any,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main, "ffmpeg_cmd_version", version)
+    if version == "invalid":
+        with pytest.raises(ValueError, match="Invalid ffmpeg_cmd_version: invalid"):
+            main.main()
+    else:
+        main.main()
+        captured = capsys.readouterr()
+        assert "Video Grid Merge Start" in captured.out
+        assert "Video Grid Merge End And Output Success" in captured.out
+        assert f"Executing command: ffmpeg_command_{version}" in captured.out
+
+
+def test_main_with_non_square_number_of_videos(
+    mock_file_operations: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def mock_get_video_files(folder: str) -> List[str]:
+        return [
+            "video1.mp4",
+            "video2.mp4",
+            "video3.mp4",
+        ]  # 3 videos (not square number)
+
+    monkeypatch.setattr(main, "get_video_files", mock_get_video_files)
+
+    with pytest.raises(SystemExit):
+        main.main()
+
+
+def test_original_terminal_settings_error(monkeypatch: MonkeyPatch) -> None:
+    def mock_tcgetattr(*args: Any) -> None:
+        raise termios.error("Mock termios error")
+
+    monkeypatch.setattr(termios, "tcgetattr", mock_tcgetattr)
+
+    # Reimport the module to trigger the exception in the global scope
+    import importlib
+
+    importlib.reload(main)
+
+    assert main.original_terminal_settings is None
+
+
+def test_reset_terminal_with_none_settings(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "original_terminal_settings", None)
+    main.reset_terminal()  # This should not raise an exception
+
+
+def test_safe_input_with_none_settings(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "original_terminal_settings", None)
+    monkeypatch.setattr(builtins, "input", lambda _: "test input")
+    result = main.safe_input("Prompt: ")
+    assert result == "test input"
 
 
 def test_get_video_files(tmp_path: Any) -> None:
