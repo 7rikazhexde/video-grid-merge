@@ -1,5 +1,6 @@
 import builtins
 import io
+import math
 import os
 import subprocess
 import sys
@@ -9,6 +10,7 @@ from concurrent.futures import Future
 from typing import Any, Callable, Generator, List, Optional, Tuple
 
 import pytest
+from _pytest.fixtures import FixtureRequest
 from pytest import MonkeyPatch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -570,98 +572,217 @@ def clear_cache() -> Generator[None, None, None]:
     main.get_video_size.cache_clear()
 
 
-@pytest.fixture
-def mock_get_video_size(monkeypatch: Any) -> None:
-    def mock(*args: Any, **kwargs: Any) -> Tuple[int, int]:
-        return (1920, 1080)
+# Constants
+TEST_DATA_DIR = os.path.join(base_dir, "test_data", "input", "get_videos")
+SAMPLE_VIDEOS = ["sample1.mov", "sample2.mov", "sample3.mov", "sample4.mov"]
+EXPECTED_WIDTH = 640
+EXPECTED_HEIGHT = 360
 
-    monkeypatch.setattr("video_grid_merge.__main__.get_video_size", mock)
+
+@pytest.fixture
+def sample_video_paths() -> List[str]:
+    return [os.path.join(TEST_DATA_DIR, video) for video in SAMPLE_VIDEOS]
+
+
+@pytest.mark.parametrize("match_input_resolution_flag", [True, False])
+def test_create_ffmpeg_command(
+    sample_video_paths: List[str], match_input_resolution_flag: bool
+) -> None:
+    output_path = "output.mp4"
+
+    # Verify that all sample videos exist
+    for path in sample_video_paths:
+        assert os.path.exists(path), f"Sample video {path} does not exist"
+
+    # Verify video dimensions
+    for path in sample_video_paths:
+        size = main.get_video_size(path)
+        assert size is not None, f"Failed to get video size for {path}"
+        width, height = size
+        assert (
+            width == EXPECTED_WIDTH and height == EXPECTED_HEIGHT
+        ), f"Unexpected video dimensions for {path}: {width}x{height}"
+
+    command = main.create_ffmpeg_command(
+        sample_video_paths, output_path, match_input_resolution_flag
+    )
+
+    # Check if the command is not empty
+    assert command != ""
+
+    # Check if all input files are in the command
+    for input_file in sample_video_paths:
+        assert input_file in command
+
+    # Check if output path is in the command
+    assert output_path in command
+
+    # Check the output resolution
+    N = len(sample_video_paths)
+    sqrt_N = int(math.sqrt(N))
+    if match_input_resolution_flag:
+        expected_resolution = f"{EXPECTED_WIDTH * sqrt_N}x{EXPECTED_HEIGHT * sqrt_N}"
+    else:
+        expected_resolution = f"{EXPECTED_WIDTH}x{EXPECTED_HEIGHT}"
+    assert f"-s {expected_resolution}" in command
+
+    # Check if filter complex is present
+    assert "-filter_complex" in command
+
+    # Check if the number of scale operations matches the number of input files
+    scale_count = command.count(f"scale={EXPECTED_WIDTH}:{EXPECTED_HEIGHT}")
+    assert scale_count == N
+
+    # Check if the number of hstack operations is correct
+    hstack_count = command.count("hstack=inputs=")
+    assert hstack_count == sqrt_N
+
+    # Check if vstack operation is present
+    assert "vstack=inputs=" in command
 
 
 def test_create_ffmpeg_command_empty_input() -> None:
-    result = main.create_ffmpeg_command([], "output.mp4", True)
-    assert result == ""
+    command = main.create_ffmpeg_command([], "output.mp4", True)
+    assert command == ""
 
 
-def test_create_ffmpeg_command_single_input(mock_get_video_size: Any) -> None:
-    result = main.create_ffmpeg_command(["input1.mp4"], "output.mp4", True)
-    expected = (
-        f'ffmpeg -y -i input1.mp4 -filter_complex "[0:v]scale=1920:1080[v0]; [v0]hstack=inputs=1[row0]; '
-        f'[row0]vstack=inputs=1[vstack]" -map "[vstack]" -map 0:a -c:v libx264 -preset ultrafast -c:a copy '
-        f"-loglevel {ffmpeg_loglevel} -s 1920x1080 output.mp4"
-    )
-    assert result == expected
+def test_create_ffmpeg_command_invalid_video_size(tmp_path: Any) -> None:
+    # Create an empty file that ffprobe can't read
+    invalid_file = tmp_path / "invalid.mp4"
+    invalid_file.touch()
+    command = main.create_ffmpeg_command([str(invalid_file)], "output.mp4", True)
+    assert command == ""
 
 
-def test_create_ffmpeg_command_multiple_inputs(mock_get_video_size: Any) -> None:
-    result = main.create_ffmpeg_command(
-        ["input1.mp4", "input2.mp4", "input3.mp4", "input4.mp4"], "output.mp4", True
-    )
-    expected = (
-        f"ffmpeg -y -i input1.mp4 -i input2.mp4 -i input3.mp4 -i input4.mp4 "
-        f'-filter_complex "[0:v]scale=1920:1080[v0]; [1:v]scale=1920:1080[v1]; [2:v]scale=1920:1080[v2]; [3:v]scale=1920:1080[v3]; '
-        f"[v0][v1]hstack=inputs=2[row0]; [v2][v3]hstack=inputs=2[row1]; "
-        f'[row0][row1]vstack=inputs=2[vstack]" '
-        f'-map "[vstack]" -map 0:a -map 1:a -map 2:a -map 3:a -c:v libx264 -preset ultrafast -c:a copy '
-        f"-loglevel {ffmpeg_loglevel} -s 3840x2160 output.mp4"
-    )
-    assert result == expected
-
-
-def test_create_ffmpeg_command_output_size_calculation(
-    mock_get_video_size: Any,
+@pytest.mark.parametrize("match_input_resolution_flag", [True, False])
+def test_create_ffmpeg_command_v2(
+    sample_video_paths: List[str], match_input_resolution_flag: bool
 ) -> None:
-    result = main.create_ffmpeg_command(
-        ["input1.mp4", "input2.mp4", "input3.mp4", "input4.mp4"], "output.mp4", True
+    output_path = "output.mp4"
+
+    # Verify that all sample videos exist
+    for path in sample_video_paths:
+        assert os.path.exists(path), f"Sample video {path} does not exist"
+
+    # Verify video dimensions
+    for path in sample_video_paths:
+        size = main.get_video_size(path)
+        assert size is not None, f"Failed to get video size for {path}"
+        width, height = size
+        assert (
+            width == EXPECTED_WIDTH and height == EXPECTED_HEIGHT
+        ), f"Unexpected video dimensions for {path}: {width}x{height}"
+
+    command = main.create_ffmpeg_command_v2(
+        sample_video_paths, output_path, match_input_resolution_flag
     )
-    assert "-s 3840x2160" in result
+
+    # Check if the command is not empty
+    assert command != ""
+
+    # Check if all input files are in the command
+    for input_file in sample_video_paths:
+        assert input_file in command
+
+    # Check if output path is in the command
+    assert output_path in command
+
+    # Check the output resolution
+    N = len(sample_video_paths)
+    sqrt_N = int(math.sqrt(N))
+    if match_input_resolution_flag:
+        expected_resolution = f"{EXPECTED_WIDTH * sqrt_N}x{EXPECTED_HEIGHT * sqrt_N}"
+    else:
+        expected_resolution = f"{EXPECTED_WIDTH}x{EXPECTED_HEIGHT}"
+    assert f"-s {expected_resolution}" in command
+
+    # Check if filter complex is present
+    assert "-filter_complex" in command
+
+    # Check if the number of scale operations matches the number of input files
+    scale_count = command.count(f"scale={EXPECTED_WIDTH}:{EXPECTED_HEIGHT}")
+    assert scale_count == N
+
+    # Check if the number of hstack operations is correct
+    hstack_count = command.count("hstack=inputs=")
+    assert hstack_count == sqrt_N
+
+    # Check if vstack operation is present
+    assert "vstack=inputs=" in command
 
 
 def test_create_ffmpeg_command_v2_empty_input() -> None:
-    result = main.create_ffmpeg_command_v2([], "output.mp4", True)
-    assert result == ""
+    command = main.create_ffmpeg_command_v2([], "output.mp4", True)
+    assert command == ""
 
 
-def test_create_ffmpeg_command_v2_single_input(mock_get_video_size: Any) -> None:
-    result = main.create_ffmpeg_command_v2(["input1.mp4"], "output.mp4", True)
-    expected = (
-        f'ffmpeg -y -i input1.mp4 -filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,'
-        f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]; [v0]hstack=inputs=1[row0]; "
-        f'[row0]vstack=inputs=1[vstack]" -map "[vstack]" -map 0:a -c:v libx264 -preset veryfast '
-        f"-crf 23 -c:a aac -b:a 128k -threads 0 -loglevel {ffmpeg_loglevel} -s 1920x1080 output.mp4"
-    )
-    assert result == expected
+def test_create_ffmpeg_command_v2_invalid_video_size(tmp_path: Any) -> None:
+    # Create an empty file that ffprobe can't read
+    invalid_file = tmp_path / "invalid.mp4"
+    invalid_file.touch()
+    command = main.create_ffmpeg_command_v2([str(invalid_file)], "output.mp4", True)
+    assert command == ""
 
 
-def test_create_ffmpeg_command_v2_multiple_inputs(mock_get_video_size: Any) -> None:
-    result = main.create_ffmpeg_command_v2(
-        ["input1.mp4", "input2.mp4", "input3.mp4", "input4.mp4"], "output.mp4", True
-    )
-    expected = (
-        f"ffmpeg -y -i input1.mp4 -i input2.mp4 -i input3.mp4 -i input4.mp4 "
-        f'-filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]; '
-        f"[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v1]; "
-        f"[2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v2]; "
-        f"[3:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v3]; "
-        f"[v0][v1]hstack=inputs=2[row0]; [v2][v3]hstack=inputs=2[row1]; "
-        f'[row0][row1]vstack=inputs=2[vstack]" '
-        f'-map "[vstack]" -map 0:a -map 1:a -map 2:a -map 3:a -c:v libx264 -preset veryfast '
-        f"-crf 23 -c:a aac -b:a 128k -threads 0 -loglevel {ffmpeg_loglevel} -s 3840x2160 output.mp4"
-    )
-    assert result == expected
-
-
-def test_create_ffmpeg_command_v2_output_size_calculation(
-    mock_get_video_size: Any,
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_main_with_different_versions(
+    version: str,
+    mock_file_operations: Any,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    result = main.create_ffmpeg_command_v2(
-        ["input1.mp4", "input2.mp4", "input3.mp4", "input4.mp4"], "output.mp4", True
-    )
-    assert "-s 3840x2160" in result
+    monkeypatch.setattr(main, "ffmpeg_cmd_version", version)
+    main.main()
+    captured = capsys.readouterr()
+    assert "Video Grid Merge Start" in captured.out
+    assert "Video Grid Merge End And Output Success" in captured.out
+    assert f"Executing command: ffmpeg_command_{version}" in captured.out
 
 
-@pytest.fixture
-def mock_file_operations(monkeypatch: Any) -> None:
+def test_main_with_invalid_version(
+    mock_file_operations: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "ffmpeg_cmd_version", "invalid")
+    with pytest.raises(ValueError, match="Invalid ffmpeg_cmd_version: invalid"):
+        main.main()
+
+
+def test_main_with_insufficient_videos(
+    mock_file_operations: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def mock_get_video_files(folder: str) -> List[str]:
+        return ["video1.mp4", "video2.mp4"]  # 不十分なビデオ数
+
+    monkeypatch.setattr(main, "get_video_files", mock_get_video_files)
+
+    with pytest.raises(SystemExit):
+        main.main()
+
+
+@pytest.mark.parametrize(
+    "input_folder,output_folder",
+    [
+        ("/custom/input", None),
+        (None, "/custom/output"),
+        ("/custom/input", "/custom/output"),
+    ],
+)
+def test_main_with_custom_folders(
+    input_folder: Optional[str],
+    output_folder: Optional[str],
+    mock_file_operations: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main.main(input_folder=input_folder, output_folder=output_folder)
+    captured = capsys.readouterr()
+    assert "Video Grid Merge Start" in captured.out
+    assert "Video Grid Merge End And Output Success" in captured.out
+
+
+@pytest.fixture(params=["v1", "v2"])
+def mock_file_operations(
+    request: FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> FixtureRequest:
     def mock_rename_files_with_spaces(directory: str) -> None:
         pass
 
@@ -687,17 +808,15 @@ def mock_file_operations(monkeypatch: Any) -> None:
     def mock_create_ffmpeg_command(
         input_files: List[str], output_path: str, match_input_resolution_flag: bool
     ) -> str:
-        return "ffmpeg_command"
+        return "ffmpeg_command_v1"
 
-    """for V2
     def mock_create_ffmpeg_command_v2(
         input_files: List[str], output_path: str, match_input_resolution_flag: bool
     ) -> str:
-        return "ffmpeg_command"
-    """
+        return "ffmpeg_command_v2"
 
     def mock_subprocess_run(ffmpeg_command: str, shell: bool) -> None:
-        pass
+        print(f"Executing command: {ffmpeg_command}")
 
     def mock_delete_files_in_folder(files: List[str], input_folder: str) -> None:
         pass
@@ -707,6 +826,8 @@ def mock_file_operations(monkeypatch: Any) -> None:
 
     def mock_listdir(directory: str) -> List[str]:
         return ["file1_TV.mov", "file2_TV.mov"]
+
+    monkeypatch.setattr(main, "ffmpeg_cmd_version", request.param)
 
     monkeypatch.setattr(
         "video_grid_merge.__main__.rnf.rename_files_with_spaces",
@@ -730,11 +851,10 @@ def mock_file_operations(monkeypatch: Any) -> None:
     monkeypatch.setattr(
         "video_grid_merge.__main__.create_ffmpeg_command", mock_create_ffmpeg_command
     )
-    """for v2
     monkeypatch.setattr(
-        "video_grid_merge.__main__.create_ffmpeg_command_v2", mock_create_ffmpeg_command_v2
+        "video_grid_merge.__main__.create_ffmpeg_command_v2",
+        mock_create_ffmpeg_command_v2,
     )
-    """
     monkeypatch.setattr(subprocess, "run", mock_subprocess_run)
     monkeypatch.setattr(
         "video_grid_merge.__main__.dlf.delete_files_in_folder",
@@ -742,6 +862,28 @@ def mock_file_operations(monkeypatch: Any) -> None:
     )
     monkeypatch.setattr(sys, "exit", mock_exit)
     monkeypatch.setattr(os, "listdir", mock_listdir)
+
+    # Set ffmpeg_cmd_version based on the current parameter
+    monkeypatch.setattr("video_grid_merge.__main__.ffmpeg_cmd_version", request.param)
+
+    return request
+
+
+def test_main(
+    mock_file_operations: FixtureRequest, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from video_grid_merge.__main__ import main
+
+    main()
+    captured = capsys.readouterr()
+    assert "Video Grid Merge Start" in captured.out
+    assert "Video Grid Merge End And Output Success" in captured.out
+
+    # ffmpeg_cmd_version に基づいた追加のアサーション
+    if mock_file_operations.param == "v1":
+        assert "Executing command: ffmpeg_command_v1" in captured.out
+    else:
+        assert "Executing command: ffmpeg_command_v2" in captured.out
 
 
 def test_main_success_case(capsys: Any, mock_file_operations: Any) -> None:

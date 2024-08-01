@@ -19,6 +19,7 @@ video_extension_list = [".mov", ".mp4"]
 match_input_resolution_flag = True
 temporarily_data_list = ["_TV", "_LP", ".txt"]
 ffmpeg_loglevel = "error"
+ffmpeg_cmd_version = "v1"
 
 # Save original terminal settings
 original_terminal_settings = termios.tcgetattr(sys.stdin)
@@ -295,14 +296,21 @@ def create_ffmpeg_command(
     if not input_files:
         return ""
 
-    video_size = get_video_size(input_files[0]) if match_input_resolution_flag else None
-    video_width, video_height = video_size or (640, 480)
+    video_size = get_video_size(input_files[0])
+    if video_size is None:
+        return ""
+
+    video_width, video_height = video_size
 
     N = len(input_files)
     sqrt_N = int(math.sqrt(N))
 
-    output_width = video_width * sqrt_N
-    output_height = video_height * sqrt_N
+    if match_input_resolution_flag:
+        output_width = video_width * sqrt_N
+        output_height = video_height * sqrt_N
+    else:
+        output_width = video_width
+        output_height = video_height
 
     filter_complex = "".join(
         [f"[{i}:v]scale={video_width}:{video_height}[v{i}]; " for i in range(N)]
@@ -343,15 +351,21 @@ def create_ffmpeg_command_v2(
     if not input_files:
         return ""
 
-    video_size = get_video_size(input_files[0]) if match_input_resolution_flag else None
-    video_width, video_height = video_size or (640, 480)
+    video_size = get_video_size(input_files[0])
+    if video_size is None:
+        return ""
+
+    video_width, video_height = video_size
 
     N = len(input_files)
     sqrt_N = int(math.sqrt(N))
 
-    output_width = video_width * sqrt_N
-    output_height = video_height * sqrt_N
-
+    if match_input_resolution_flag:
+        output_width = video_width * sqrt_N
+        output_height = video_height * sqrt_N
+    else:
+        output_width = video_width
+        output_height = video_height
     filter_complex = "".join(
         [
             f"[{i}:v]scale={video_width}:{video_height}:force_original_aspect_ratio=decrease,pad={video_width}:{video_height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]; "
@@ -413,16 +427,17 @@ def main(
 
     create_target_video(input_folder, video_files)
     input_files = get_target_files(input_folder, sorted(os.listdir(input_folder)))
-    # """
-    ffmpeg_command = create_ffmpeg_command(
-        input_files, output_path, match_input_resolution_flag
-    )
-    # """
-    """
-    ffmpeg_command = create_ffmpeg_command_v2(
-        input_files, output_path, match_input_resolution_flag
-    )
-    """
+
+    if ffmpeg_cmd_version == "v1":
+        ffmpeg_command = create_ffmpeg_command(
+            input_files, output_path, match_input_resolution_flag
+        )
+    elif ffmpeg_cmd_version == "v2":
+        ffmpeg_command = create_ffmpeg_command_v2(
+            input_files, output_path, match_input_resolution_flag
+        )
+    else:
+        raise ValueError(f"Invalid ffmpeg_cmd_version: {ffmpeg_cmd_version}")
 
     print("Video Grid Merge Start")
     subprocess.run(ffmpeg_command, shell=True)
