@@ -76,10 +76,26 @@ poetry install
 - Input videos should be stored in the Input folder.
 - Specify the resolution of the output video.
 - The following two patterns are available for specifying the resolution. (Default is 1)
-  1. Expand the number of Input Video:\
-     `match_input_resolution_flag = true`
-  1. 640x480:\
-     `match_input_resolution_flag = false`
+   1. Expand the number of Input Video: `match_input_resolution_flag = True` e.g. 4 Videos Input (640x360) -> 1 Video Output (1280x720)
+   2. Resize based on Input Video: `match_input_resolution_flag = False` e.g. 4 Videos Input (640x360) -> 1 Video Output (640x360)
+
+##### Choosing between v1 and v2
+
+This tool provides two versions of the ffmpeg command generation function: `create_ffmpeg_command` (v1) and `create_ffmpeg_command_v2` (v2). You should choose the version that best suits your needs:
+
+1. `create_ffmpeg_command` (v1) - Default:
+   - Uses the `ultrafast` preset for very rapid encoding
+   - Copies audio streams without re-encoding
+   - Best for quick processing where encoding speed is the top priority
+
+2. `create_ffmpeg_command_v2` (v2):
+   - Uses the `veryfast` preset with CRF 23 for a balance of speed and quality
+   - Re-encodes audio to AAC format for better compatibility
+   - Maintains aspect ratio of input videos with padding
+   - Utilizes multi-threading for improved performance
+   - Recommended for most use cases, offering a good balance of speed, quality, and compatibility
+
+To select a version, simply use the corresponding function in your code. If you're unsure, I recommend starting with v2 (`create_ffmpeg_command_v2`) as it provides a good balance for most use cases.
 
 ### Example
 
@@ -87,17 +103,17 @@ poetry install
 
 ```bash
 $ python video_grid_merge
-Input Video Time List: [48.31, 62.43, 63.96, 77.83]
-Enter the name of the output file (default is 'combined_video.mov'): test.mov
+Enter the name of the output file (default is 'combined_video.mov'): test
+Input Video Time List: [63.96, 62.43, 48.31, 77.83]
 Video Grid Merge Start
 Video Grid Merge End And Output Success
 File Output Complete: ./video_grid_merge/media/output/test.mov
-Processing Time(s): 24.62715184
+Processing Time(s): 16.33857367
 ```
 
 ## Other
 
-### delete temporary data
+### Delete temporary data
 
 if you delete temporary data files in the specified folder
 
@@ -112,14 +128,3 @@ poetry run task vgmrm
 ```bash
 python video_grid_merge/delete_files.py
 ```
-
-### Synchronous update process of version and git tag in poetry.toml
-
-If you fork this project, you can use the following function to synchronously update the versions of poetry.toml and git tags.\
-If you need it, please see [the link](<(https://github.com/7rikazhexde/video-grid-merge/issues/1)>) for instructions on how to use it.
-
-#### Reference
-
-[feat: Add Version update feature by pre-commit and post-commit #1](https://github.com/7rikazhexde/video-grid-merge/issues/1)
-
-[GitHub Action: pytest-coverage-comment](https://github.com/MishaKav/pytest-coverage-comment#example-usage)
