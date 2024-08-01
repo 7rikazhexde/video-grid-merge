@@ -69,9 +69,11 @@ jobs:
           fi
           if [ -f ${{ matrix.os }}_tmp/report_page.html ]; then
             mv ${{ matrix.os }}_tmp/report_page.html ${{ matrix.os }}/report_page.html
+            git add ${{ matrix.os }}/assets ${{ matrix.os }}/report_page.html
+            git commit -m "Add pytest HTML report to ghpages for ${{ matrix.os }}" || echo "No changes to commit"
+          else
+            echo "No report generated, skipping commit"
           fi
-          git add ${{ matrix.os }}/assets ${{ matrix.os }}/report_page.html
-          git commit -m "Add pytest HTML report to ghpages for ${{ matrix.os }}"
       - name: Push to ghpages branch
         uses: ad-m/github-push-action@master
         with:
