@@ -38,9 +38,14 @@ jobs:
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install poetry
-        run: pip install poetry
+        run: |
+          pip install --upgrade pip
+          pip install poetry
       - name: Poetry setup
-        run: poetry install
+        run: |
+          poetry --version
+          poetry config --list
+          poetry install -vv
       - name: Run test with HTML report
         shell: bash
         if: ${{ steps.is_main.outputs.flag == '1' }}
@@ -69,13 +74,11 @@ jobs:
           fi
           if [ -f ${{ matrix.os }}_tmp/report_page.html ]; then
             mv ${{ matrix.os }}_tmp/report_page.html ${{ matrix.os }}/report_page.html
-            git add ${{ matrix.os }}/assets ${{ matrix.os }}/report_page.html
-            git commit -m "Add pytest HTML report to ghpages for ${{ matrix.os }}" || echo "No changes to commit"
-          else
-            echo "No report generated, skipping commit"
           fi
+          git add ${{ matrix.os }}/assets ${{ matrix.os }}/report_page.html
+          git commit -m "Add pytest HTML report to ghpages for ${{ matrix.os }}"
       - name: Push to ghpages branch
-        uses: ad-m/github-push-action@master
+        uses: ad-m/github-push-action@v0.6.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ghpages
@@ -121,9 +124,14 @@ jobs:
       - name: Install FFmpeg
         run: brew install ffmpeg
       - name: Install poetry
-        run: pip install poetry
+        run: |
+          pip install --upgrade pip
+          pip install poetry
       - name: Poetry setup
-        run: poetry install
+        run: |
+          poetry --version
+          poetry config --list
+          poetry install -vv
       - name: Run test with HTML report
         shell: bash
         if: ${{ steps.is_main.outputs.flag == '1' }}
@@ -156,7 +164,7 @@ jobs:
           git add ${{ matrix.os }}/assets ${{ matrix.os }}/report_page.html
           git commit -m "Add pytest HTML report to ghpages for ${{ matrix.os }}"
       - name: Push to ghpages branch
-        uses: ad-m/github-push-action@master
+        uses: ad-m/github-push-action@v0.6.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ghpages
