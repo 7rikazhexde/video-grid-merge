@@ -18,7 +18,7 @@ from video_grid_merge import rename_files as rnf
 
 video_extension_list = [".mov", ".mp4"]
 match_input_resolution_flag = True
-temporarily_data_list = ["_TV", "_LP", ".txt"]
+temporarily_data_list = ["_TV", ".txt"]
 ffmpeg_loglevel = "error"
 ffmpeg_cmd_version = "v1"
 
@@ -321,6 +321,17 @@ def create_ffmpeg_command(
     """
     Create the ffmpeg command to merge multiple videos into a grid layout.
 
+    This function generates an ffmpeg command that combines multiple input videos
+    into a single output video with a grid layout. It uses the 'ultrafast' preset
+    for faster encoding at the cost of file size and quality.
+
+    Features:
+    - Scales all input videos to the same size
+    - Creates a grid layout based on the number of input videos
+    - Uses libx264 codec with 'ultrafast' preset for rapid encoding
+    - Copies audio streams without re-encoding
+    - Optionally matches the output resolution to the combined input resolutions
+
     Args:
         input_files (list[str]): A list of input video file paths.
         output_path (str): The path for the output video file.
@@ -375,6 +386,24 @@ def create_ffmpeg_command_v2(
 ) -> str:
     """
     Create an optimized ffmpeg command to merge multiple videos into a grid layout.
+
+    This function generates an improved ffmpeg command that combines multiple input
+    videos into a single output video with a grid layout. It balances encoding speed,
+    output quality, and file size.
+
+    Features:
+    - Scales and pads input videos to maintain aspect ratio
+    - Creates a grid layout based on the number of input videos
+    - Uses libx264 codec with 'veryfast' preset and CRF 23 for balanced encoding
+    - Re-encodes audio to AAC format with 128k bitrate for better compatibility
+    - Utilizes multi-threading for improved performance
+    - Optionally matches the output resolution to the combined input resolutions
+
+    Improvements over v1:
+    - Better aspect ratio handling with padding
+    - Improved balance between encoding speed and output quality
+    - Audio re-encoding for wider compatibility
+    - Multi-threading support for faster processing
 
     Args:
         input_files (list[str]): A list of input video file paths.
