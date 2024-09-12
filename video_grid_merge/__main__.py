@@ -489,18 +489,6 @@ def create_ffmpeg_command_v2(
 def create_gpu_ffmpeg_command(
     input_files: list[str], output_path: str, match_input_resolution_flag: bool
 ) -> str:  # pragma: no cover
-    """
-    Create an FFmpeg command to merge multiple videos into a grid layout with merged audio,
-    using GPU acceleration for faster encoding.
-
-    Args:
-        input_files (list[str]): A list of input video file paths.
-        output_path (str): The path for the output video file.
-        match_input_resolution_flag (bool): Whether to match the input video resolution.
-
-    Returns:
-        str: The FFmpeg command string using GPU acceleration.
-    """
     if not input_files:
         return ""
 
@@ -530,9 +518,9 @@ def create_gpu_ffmpeg_command(
         ]
     )
     filter_complex += f'{"".join([f"[row{i}]" for i in range(sqrt_N)])}vstack=inputs={sqrt_N}[vstack]; '
-    # Audio mixing
-    filter_complex += "".join([f"[{i}:a]" for i in range(N)])
-    filter_complex += f"amix=inputs={N}:duration=longest[aout]"
+    filter_complex += "".join([f"[{i}:a]volume=1[a{i}]; " for i in range(N)])
+    filter_complex += "".join([f"[a{i}]" for i in range(N)])
+    filter_complex += f"amix=inputs={N}:dropout_transition=0,volume={N}[aout]"
 
     return (
         f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
