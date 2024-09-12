@@ -83,19 +83,29 @@ poetry install
 
 This tool provides two versions of the ffmpeg command generation function: `create_ffmpeg_command` (v1) and `create_ffmpeg_command_v2` (v2). You should choose the version that best suits your needs:
 
-1. `create_ffmpeg_command` (v1) - Default:
-   - Uses the `ultrafast` preset for very rapid encoding
-   - Copies audio streams without re-encoding
-   - Best for quick processing where encoding speed is the top priority
+###### 1. `create_ffmpeg_command_v1` - Default
 
-2. `create_ffmpeg_command_v2` (v2):
-   - Uses the `veryfast` preset with CRF 23 for a balance of speed and quality
-   - Re-encodes audio to AAC format for better compatibility
-   - Maintains aspect ratio of input videos with padding
-   - Utilizes multi-threading for improved performance
-   - Recommended for most use cases, offering a good balance of speed, quality, and compatibility
+- Uses the `ultrafast` preset for very rapid encoding
+- Applies volume normalization to each input audio stream
+- Uses sophisticated audio mixing with dropout transition and volume adjustment
+- Best for quick processing where encoding speed is the top priority, while maintaining good audio quality
 
-To select a version, simply use the corresponding function in your code. If you're unsure, I recommend starting with v2 (`create_ffmpeg_command_v2`) as it provides a good balance for most use cases.
+###### 2. `create_ffmpeg_command_v2`
+
+- Uses the medium preset with CRF 23 for a balance of speed, quality, and file size
+- Applies volume normalization and sophisticated audio mixing (same as v1)
+- Recommended for cases where file size and quality are important, but processing time is not critical
+
+All versions now include:
+
+- Effective mixing of audio from all input videos
+- Volume normalization for consistent audio levels
+- Enhanced audio clarity and reduced distortion in the final output
+
+To select a version, use the corresponding function in your code. If you're unsure:
+
+- Use v1 for the fastest processing with good audio quality
+- Use v2 when file size and overall quality are priorities
 
 ### Example
 

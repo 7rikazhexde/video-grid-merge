@@ -1,5 +1,12 @@
 {
     "files.exclude": {
         "**/.git": false
+    },
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit" // Organize import lines when saving code
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff", // Using Ruff for Formatter
+        "editor.formatOnSave": true // Perform formatting when saving code
     }
 }
