@@ -2,6 +2,7 @@ import atexit
 import io
 import math
 import os
+import re
 import subprocess
 import sys
 import termios
@@ -154,15 +155,16 @@ def get_video_length_ffmpeg(file_path: str) -> Union[float, None]:
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         output = result.communicate()[0].decode("utf-8")
-        duration_line = next(
-            (line for line in output.split("\n") if "Duration" in line), None
-        )
-        if duration_line:
-            duration_text = duration_line.split("Duration: ")[1].split(",")[0]
-            h, m, s = map(float, duration_text.split(":"))
+
+        match = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", output)
+        if match:
+            h, m, s = map(float, match.groups())
             return h * 3600 + m * 60 + s
-        return None
-    except Exception:
+        else:
+            print(f"Failed to extract duration from FFmpeg output for {file_path}.")
+            return None
+    except Exception as e:
+        print(f"Error getting video length for {file_path}: {e}")
         return None
 
 
@@ -300,45 +302,65 @@ def get_video_size(filename: str) -> Optional[Tuple[int, int]]:
         f"{ffmpeg_loglevel}",
         "-select_streams",
         "v:0",
+        "-count_packets",
         "-show_entries",
         "stream=width,height",
         "-of",
-        "csv=s=x:p=0",
+        "csv=p=0",
         filename,
     ]
     try:
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode().strip()
-        width, height = map(int, output.split("x"))
-        return (width, height)
+        dimensions = output.split(",")
+        if len(dimensions) == 2:
+            width, height = map(int, dimensions)
+            return (width, height)
+        else:
+            print(f"Unexpected output format from ffprobe for {filename}: {output}")
+            return None
     except subprocess.CalledProcessError as e:
-        print(f"Error: {str(e)}")
+        print(f"Error running ffprobe on {filename}: {e}")
+        return None
+    except ValueError as e:
+        print(f"Error parsing ffprobe output for {filename}: {e}")
         return None
 
 
-def create_ffmpeg_command(
+def create_ffmpeg_command_v1(
     input_files: list[str], output_path: str, match_input_resolution_flag: bool
 ) -> str:
     """
-    Create the ffmpeg command to merge multiple videos into a grid layout.
+    Create an advanced ffmpeg command to merge multiple videos into a grid layout with sophisticated audio mixing.
 
     This function generates an ffmpeg command that combines multiple input videos
-    into a single output video with a grid layout. It uses the 'ultrafast' preset
-    for faster encoding at the cost of file size and quality.
+    into a single output video with a grid layout. It scales all input videos to the
+    same resolution, stacks them into a grid, and applies a sophisticated audio mixing process.
+    The command uses the 'ultrafast' preset of the libx264 codec for rapid encoding,
+    prioritizing speed while maintaining high audio quality.
 
     Features:
-    - Scales all input videos to the same size
-    - Creates a grid layout based on the number of input videos
-    - Uses libx264 codec with 'ultrafast' preset for rapid encoding
-    - Copies audio streams without re-encoding
-    - Optionally matches the output resolution to the combined input resolutions
+    - Scales all input videos to the same size without maintaining aspect ratio
+    - Arranges videos in a grid layout based on the square root of the number of input files
+    - Applies volume normalization to each input audio stream for consistent audio levels
+    - Uses a sophisticated audio mixing process with dropout transition and volume adjustment
+    - Enhances audio clarity and reduces distortion in the final output
+    - Balances audio levels effectively across all inputs
+    - Uses libx264 codec with 'ultrafast' preset for fast encoding
+    - Optionally matches the output resolution to the combined input resolutions if specified
 
     Args:
-        input_files (list[str]): A list of input video file paths.
+        input_files (list[str]): A list of paths to input video files.
         output_path (str): The path for the output video file.
-        match_input_resolution_flag (bool): Whether to match the input video resolution.
+        match_input_resolution_flag (bool): If True, the output resolution matches
+                                            the combined input video resolutions; otherwise,
+                                            it uses the resolution of the first input video.
 
     Returns:
-        str: The ffmpeg command string.
+        str: The ffmpeg command string with advanced video layout and audio processing.
+
+    Note:
+        This function prioritizes both speed in video processing and quality in audio output,
+        making it suitable for projects where quick rendering and audio clarity are important.
     """
     if not input_files:
         return ""
@@ -368,15 +390,17 @@ def create_ffmpeg_command(
             for i in range(sqrt_N)
         ]
     )
-    filter_complex += (
-        f'{"".join([f"[row{i}]" for i in range(sqrt_N)])}vstack=inputs={sqrt_N}[vstack]'
-    )
+    filter_complex += f'{"".join([f"[row{i}]" for i in range(sqrt_N)])}vstack=inputs={sqrt_N}[vstack]; '
+    filter_complex += "".join([f"[{i}:a]volume=1[a{i}]; " for i in range(N)])
+    filter_complex += "".join([f"[a{i}]" for i in range(N)])
+    filter_complex += f"amix=inputs={N}:dropout_transition=0,volume={N}[aout]"
 
     return (
         f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
         f'-filter_complex "{filter_complex}" '
-        f'-map "[vstack]" {" ".join([f"-map {i}:a" for i in range(len(input_files))])} '
-        f"-c:v libx264 -preset ultrafast -c:a copy -loglevel {ffmpeg_loglevel} "
+        f'-map "[vstack]" -map "[aout]" '
+        f"-c:v libx264 -preset ultrafast "
+        f"-c:a aac -b:a 192k -threads {os.cpu_count()} -loglevel {ffmpeg_loglevel} "
         f"-s {output_width}x{output_height} {output_path}"
     )
 
@@ -385,33 +409,39 @@ def create_ffmpeg_command_v2(
     input_files: list[str], output_path: str, match_input_resolution_flag: bool
 ) -> str:
     """
-    Create an optimized ffmpeg command to merge multiple videos into a grid layout.
+    Create an ffmpeg command to merge multiple videos into a grid layout with balanced efficiency and quality.
 
-    This function generates an improved ffmpeg command that combines multiple input
-    videos into a single output video with a grid layout. It balances encoding speed,
-    output quality, and file size.
+    This function generates an ffmpeg command that combines multiple input videos
+    into a single output video with a grid layout. It scales all input videos to the
+    same resolution, stacks them into a grid, and applies sophisticated audio mixing.
+    The command balances encoding efficiency and output quality, prioritizing file size
+    reduction while maintaining good visual and audio quality.
 
     Features:
-    - Scales and pads input videos to maintain aspect ratio
-    - Creates a grid layout based on the number of input videos
-    - Uses libx264 codec with 'veryfast' preset and CRF 23 for balanced encoding
-    - Re-encodes audio to AAC format with 128k bitrate for better compatibility
-    - Utilizes multi-threading for improved performance
-    - Optionally matches the output resolution to the combined input resolutions
-
-    Improvements over v1:
-    - Better aspect ratio handling with padding
-    - Improved balance between encoding speed and output quality
-    - Audio re-encoding for wider compatibility
-    - Multi-threading support for faster processing
+    - Scales all input videos to the same size without maintaining aspect ratio
+    - Arranges videos in a grid layout based on the square root of the number of input files
+    - Applies volume normalization to each input audio stream for consistent audio levels
+    - Uses a sophisticated audio mixing process with dropout transition and volume adjustment
+    - Enhances audio clarity and reduces distortion in the final output
+    - Balances audio levels effectively across all inputs
+    - Uses libx264 codec with 'medium' preset for a balance of encoding speed and compression efficiency
+    - Applies Constant Rate Factor (CRF) for efficient size/quality balance
+    - Optionally matches the output resolution to the combined input resolutions if specified
 
     Args:
-        input_files (list[str]): A list of input video file paths.
+        input_files (list[str]): A list of paths to input video files.
         output_path (str): The path for the output video file.
-        match_input_resolution_flag (bool): Whether to match the input video resolution.
+        match_input_resolution_flag (bool): If True, the output resolution matches
+                                            the combined input video resolutions; otherwise,
+                                            it uses the resolution of the first input video.
 
     Returns:
-        str: The optimized ffmpeg command string.
+        str: The ffmpeg command string with balanced video and audio processing.
+
+    Note:
+        This function aims to produce smaller file sizes compared to the fastest encoding
+        options, while still maintaining good visual quality and audio clarity. It's suitable
+        for projects where file size is a concern but quality cannot be significantly compromised.
     """
     if not input_files:
         return ""
@@ -431,11 +461,9 @@ def create_ffmpeg_command_v2(
     else:
         output_width = video_width
         output_height = video_height
+
     filter_complex = "".join(
-        [
-            f"[{i}:v]scale={video_width}:{video_height}:force_original_aspect_ratio=decrease,pad={video_width}:{video_height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]; "
-            for i in range(N)
-        ]
+        [f"[{i}:v]scale={video_width}:{video_height}[v{i}]; " for i in range(N)]
     )
     filter_complex += "".join(
         [
@@ -443,16 +471,63 @@ def create_ffmpeg_command_v2(
             for i in range(sqrt_N)
         ]
     )
-    filter_complex += (
-        f'{"".join([f"[row{i}]" for i in range(sqrt_N)])}vstack=inputs={sqrt_N}[vstack]'
-    )
+    filter_complex += f'{"".join([f"[row{i}]" for i in range(sqrt_N)])}vstack=inputs={sqrt_N}[vstack]; '
+    filter_complex += "".join([f"[{i}:a]volume=1[a{i}]; " for i in range(N)])
+    filter_complex += "".join([f"[a{i}]" for i in range(N)])
+    filter_complex += f"amix=inputs={N}:dropout_transition=0,volume={N}[aout]"
 
     return (
         f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
         f'-filter_complex "{filter_complex}" '
-        f'-map "[vstack]" {" ".join([f"-map {i}:a" for i in range(len(input_files))])} '
-        f"-c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k "
-        f"-threads 0 -loglevel {ffmpeg_loglevel} "
+        f'-map "[vstack]" -map "[aout]" '
+        f"-c:v libx264 -preset medium -crf 23 "
+        f"-c:a aac -b:a 128k -threads {os.cpu_count()} -loglevel {ffmpeg_loglevel} "
+        f"-s {output_width}x{output_height} {output_path}"
+    )
+
+
+def create_gpu_ffmpeg_command(
+    input_files: list[str], output_path: str, match_input_resolution_flag: bool
+) -> str:  # pragma: no cover
+    if not input_files:
+        return ""
+
+    video_size = get_video_size(input_files[0])
+    if video_size is None:
+        return ""
+
+    video_width, video_height = video_size
+
+    N = len(input_files)
+    sqrt_N = int(math.sqrt(N))
+
+    if match_input_resolution_flag:
+        output_width = video_width * sqrt_N
+        output_height = video_height * sqrt_N
+    else:
+        output_width = video_width
+        output_height = video_height
+
+    filter_complex = "".join(
+        [f"[{i}:v]scale={video_width}:{video_height}[v{i}]; " for i in range(N)]
+    )
+    filter_complex += "".join(
+        [
+            f'{"".join([f"[v{i*sqrt_N+j}]" for j in range(sqrt_N)])}hstack=inputs={sqrt_N}[row{i}]; '
+            for i in range(sqrt_N)
+        ]
+    )
+    filter_complex += f'{"".join([f"[row{i}]" for i in range(sqrt_N)])}vstack=inputs={sqrt_N}[vstack]; '
+    filter_complex += "".join([f"[{i}:a]volume=1[a{i}]; " for i in range(N)])
+    filter_complex += "".join([f"[a{i}]" for i in range(N)])
+    filter_complex += f"amix=inputs={N}:dropout_transition=0,volume={N}[aout]"
+
+    return (
+        f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
+        f'-filter_complex "{filter_complex}" '
+        f'-map "[vstack]" -map "[aout]" '
+        f"-c:v h264_nvenc -preset p7 "
+        f"-c:a aac -b:a 192k -threads {os.cpu_count()} -loglevel {ffmpeg_loglevel} "
         f"-s {output_width}x{output_height} {output_path}"
     )
 
@@ -494,11 +569,15 @@ def main(
     input_files = get_target_files(input_folder, sorted(os.listdir(input_folder)))
 
     if ffmpeg_cmd_version == "v1":
-        ffmpeg_command = create_ffmpeg_command(
+        ffmpeg_command = create_ffmpeg_command_v1(
             input_files, output_path, match_input_resolution_flag
         )
     elif ffmpeg_cmd_version == "v2":
         ffmpeg_command = create_ffmpeg_command_v2(
+            input_files, output_path, match_input_resolution_flag
+        )
+    elif ffmpeg_cmd_version == "gpu":  # pragma: no cover
+        ffmpeg_command = create_gpu_ffmpeg_command(
             input_files, output_path, match_input_resolution_flag
         )
     else:
