@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-12, ubuntu-latest]
-        python-version: ['3.10', '3.11']
+        python-version: ['3.10', '3.11', '3.12']
     runs-on: ${{ matrix.os }}
     env:
       TZ: 'Asia/Tokyo'
@@ -24,16 +24,16 @@ jobs:
         id: is_main
         shell: bash
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ] && [ "${{ matrix.python-version }}" = "3.11" ];then
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ] && [ "${{ matrix.python-version }}" = "3.12" ];then
             echo "flag=1" >> $GITHUB_OUTPUT
           else
             echo "flag=0" >> $GITHUB_OUTPUT
           fi
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{matrix.python-version}}
       - name: Install FFmpeg (macOS)
@@ -66,7 +66,7 @@ jobs:
           report-only-changed-files: false
           remove-link-from-badge: false
           junitxml-path: ./pytest.xml
-          junitxml-title: "Pytest Result Summary (os: ubuntu-latest / python-version: 3.11)"
+          junitxml-title: "Pytest Result Summary (os: ubuntu-latest / python-version: 3.12)"
       - name: Update Readme in coverage branch
         if: ${{ steps.is_main.outputs.flag == '1' }}
         run: |
