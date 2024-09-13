@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "video-grid-merge"
-version = "0.2.25"
+version = "0.2.26"
 description = "This project allows you to use FFmpeg to arrange video files stored in a specified folder in an NxN grid layout and generate the output."
 authors = ["7rikaz"]
 readme = "README.md"
