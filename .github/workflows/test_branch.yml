@@ -141,14 +141,6 @@ jobs:
           echo -e "> Commit: $commit_link" >> README.md
           echo -e "" >> README.md  # この行を追加
 
-          # テスト対象外のファイルに関する注記を追加
-          echo -e "> [!Important]" >> README.md
-          echo -e "> The following file is intentionally excluded from test coverage:" >> README.md
-          echo -e "> - \`video_grid_merge/staking/ton_whales_staking_dashboard.py\`" >> README.md
-          echo -e "> " >> README.md
-          echo -e "> This file contains complex external dependencies and is verified through manual and integration testing." >> README.md
-          echo -e "> " >> README.md
-
           # macOS、Ubuntuの各OSとPythonバージョンごとにカバレッジレポートを追加
           for os in macos-12 ubuntu-latest; do
             for version in 3.11 3.12; do
