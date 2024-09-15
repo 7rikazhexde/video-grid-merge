@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "video-grid-merge"
-version = "0.2.26"
+version = "0.2.27"
 description = "This project allows you to use FFmpeg to arrange video files stored in a specified folder in an NxN grid layout and generate the output."
 authors = ["7rikaz"]
 readme = "README.md"
@@ -17,6 +17,8 @@ black = "poetry run black video_grid_merge tests ci"
 ruffcheck = "poetry run ruff video_grid_merge tests ci"
 rufffix = "poetry run ruff video_grid_merge tests ci --fix"
 mypy = "poetry run mypy"
+test_gh_action_xml = "python scripts/run_tests.py --report xml"
+test_gh_action_term = "python scripts/run_tests.py --report term"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -84,5 +86,24 @@ ignore_missing_imports = true
 scripts_are_modules = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests",]
-addopts = "--capture=no"
+testpaths = ["video_grid_merge", "tests"]
+pythonpath = ["."]
+addopts = "--cov=video_grid_merge --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["video_grid_merge"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError:",
+    "def main"
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

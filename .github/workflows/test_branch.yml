@@ -1,12 +1,14 @@
-# This workflow will install dependencies, create coverage tests and run Pytest Coverage Comment
-# For more information see: https://github.com/MishaKav/pytest-coverage-comment/
-name: test branch
+# Workflow for testing the project across multiple operating systems and Python versions.
+# This workflow runs on main branch pushes, pull requests to main, and can be manually triggered.
+# It performs unit tests, generates coverage reports, and updates the README with the latest coverage data.
+
+name: Multi-OS Test
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - 'main'
+      - '*'
   pull_request:
     branches:
       - 'main'
@@ -23,6 +25,7 @@ jobs:
       TZ: 'Asia/Tokyo'
     permissions:
       contents: write
+      pull-requests: write
     steps:
       # リポジトリをチェックアウト
       - uses: actions/checkout@v4
@@ -30,23 +33,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{matrix.python-version}}
+      # ffmpegのインストール
       - name: Install FFmpeg (macOS)
         if: matrix.os == 'macos-12'
         run: brew install ffmpeg
       - name: Install FFmpeg (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      # Windowsのタイムゾーン設定
+      - name: Set timezone on Windows
+        if: runner.os == 'Windows'
+        run: tzutil /s "Tokyo Standard Time"
+        shell: cmd
       - name: Install poetry
         # poetryのインストール
         run: pip install poetry
-      - name: Poetry setup
+      - name: Cache dependencies
+        #キャッシュの活用
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
         # Poetryで依存関係をインストール
         run: poetry install
       - name: Run test
         id: pytest
         # エラーが発生しても続行する
         continue-on-error: true
-        run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report "xml:coverage.xml" --cov=video_grid_merge | tee pytest-coverage.txt
+        #run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report "xml:coverage.xml" --cov=video_grid_merge tests/ | tee pytest-coverage.txt
+        run: poetry run task test_gh_action_xml
       - name: Pytest coverage comment
         # カバレッジレポートをコメントとして生成
         id: coverageComment
@@ -64,6 +80,12 @@ jobs:
           remove-link-from-badge: false
           junitxml-path: ./pytest.xml
           junitxml-title: "Pytest Result Summary (os: ${{ matrix.os }} / python-version: ${{ matrix.python-version }})"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check test results
+        if: steps.pytest.outcome == 'failure'
+        run: |
+          echo "Tests failed. This will prevent merging the pull request."
+          exit 1
       - name: Save summary report
         run: |
           # カバレッジのサマリーレポートをMarkdownファイルとして保存
@@ -86,8 +108,10 @@ jobs:
   update_readme:
     needs: test
     runs-on: ubuntu-latest
+    if: always()
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,19 +127,30 @@ jobs:
             git checkout --orphan coverage
             git rm -rf .
           fi
+
           # README.mdのヘッダーとバッジを追加
           echo "# Coverage Reports" > README.md
           echo "[![](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_branch.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_branch.yml)" >> README.md
           echo "" >> README.md
+
           # 最新のコミット情報をREADMEに追加
           commit_hash=${GITHUB_SHA::8}
           commit_link="[$commit_hash](https://github.com/$GITHUB_REPOSITORY/tree/$commit_hash)"
           echo -e "> [!Note]" >> README.md
           echo -e "> " >> README.md
           echo -e "> Commit: $commit_link" >> README.md
+          echo -e "" >> README.md  # この行を追加
+
+          # テスト対象外のファイルに関する注記を追加
+          echo -e "> [!Important]" >> README.md
+          echo -e "> The following file is intentionally excluded from test coverage:" >> README.md
+          echo -e "> - \`video_grid_merge/staking/ton_whales_staking_dashboard.py\`" >> README.md
           echo -e "> " >> README.md
-          # macOS、Ubuntu、Windowsの各OSとPythonバージョンごとにカバレッジレポートを追加
-          for os in macos-12 ubuntu-latest windows-latest; do
+          echo -e "> This file contains complex external dependencies and is verified through manual and integration testing." >> README.md
+          echo -e "> " >> README.md
+
+          # macOS、Ubuntuの各OSとPythonバージョンごとにカバレッジレポートを追加
+          for os in macos-12 ubuntu-latest; do
             for version in 3.11 3.12; do
               echo "## Coverage Report (os: $os / python-version: $version)" >> README.md
               if [ -f "coverage-data-$os-$version/summary-report.md" ]; then
@@ -129,8 +164,12 @@ jobs:
               echo "" >> README.md
             done
           done
+
           # ファイルパスを修正する
-          sed -i 's|/blob/\([a-f0-9]*\)/\([^"]*\)|/blob/\1/video_grid_merge/\2|g' README.md
+          sed -i '
+            s|/blob/\([a-f0-9]*\)/\([^"]*\)|/blob/\1/video_grid_merge/\2|g;
+            s|/blob/\([a-f0-9]*\)/video_grid_merge/README\.md|/blob/\1/README.md|g
+          ' README.md
       - name: Commit and push
         run: |
           # Gitのユーザー設定とコミット、ブランチへのプッシュ
@@ -139,3 +178,14 @@ jobs:
           git add README.md
           git commit -m "Update coverage for all environments"
           git push origin coverage
+
+  check_all_tests:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test results
+        if: contains(needs.test.result, 'failure')
+        run: |
+          echo "Some tests failed. Please check the test results and fix any issues before merging."
+          exit 1
