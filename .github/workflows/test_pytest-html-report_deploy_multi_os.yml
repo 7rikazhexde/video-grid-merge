@@ -1,0 +1,167 @@
+name: pytest-html Report and Deploy Multi-OS
+
+# ワークフローの処理の流れ:
+# 1. トリガー条件:
+#    - 手動実行
+#    - プルリクエスト
+#    - mainブランチへのプッシュ（Version Updateワークフロー以外）
+# 2. 複数の環境（OS、Pythonバージョン）でのテスト実行
+# 3. pytest-htmlを使用してHTMLレポートを生成
+# 4. テスト結果のアップロード
+# 5. 全テスト結果の確認
+# 6. mainブランチへのプッシュ時のみ、変更がある場合にGitHub Pagesへデプロイ
+# 7. デプロイしたレポートのURL生成
+# 8. 変更の有無に応じたLINE通知の送信
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  test-and-report:
+    if: github.actor != 'dependabot[bot]' && !startsWith(github.event.head_commit.message, 'Bump version') && !contains(github.ref, 'version-update')
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-13]
+        python-version: ["3.12"]
+    runs-on: ${{ matrix.os }}
+    env:
+      TZ: "Asia/Tokyo"
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install FFmpeg (macOS)
+        if: matrix.os == 'macos-13'
+        run: brew install ffmpeg
+      - name: Install FFmpeg (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Set timezone
+        uses: szenius/set-timezone@v2.0
+        with:
+          timezoneLinux: "Asia/Tokyo"
+          timezoneMacos: "Asia/Tokyo"
+          timezoneWindows: "Tokyo Standard Time"
+      - name: Install poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Run tests with pytest-html
+        id: pytest-html
+        run: |
+          mkdir -p test_results
+          poetry run pytest --html=test_results/report_page.html
+        shell: bash
+      - name: Upload pytest-html results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test_results
+        if: always()
+
+  check_all_tests:
+    needs: test-and-report
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test results
+        if: contains(needs.test-and-report.result, 'failure')
+        run: |
+          echo "Some tests failed. Please check the test results and fix any issues before merging."
+          exit 1
+
+  deploy:
+    needs: [test-and-report, check_all_tests]
+    runs-on: ubuntu-latest
+    if: success() && github.ref == 'refs/heads/main' && github.actor != 'dependabot[bot]' && !startsWith(github.event.head_commit.message, 'Bump version') && !contains(github.ref, 'version-update')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download pytest-html artifacts
+        uses: actions/download-artifact@v4
+      - name: Setup Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+      - name: Check and Deploy to GitHub Pages
+        run: |
+          git fetch origin ghpages:ghpages || git checkout -b ghpages
+          git checkout ghpages
+
+          changes_made=false
+          for os in ubuntu-latest macos-13; do
+            folder_name="pytest-html-report_${os}"
+            mkdir -p $folder_name
+            if [ -f test-results-$os/report_page.html ]; then
+              if [ ! -f $folder_name/report_page.html ] || ! diff test-results-$os/report_page.html $folder_name/report_page.html > /dev/null; then
+                echo "Changes detected for $os, updating..."
+                mv test-results-$os/report_page.html $folder_name/
+                if [ -d test-results-$os/assets ]; then
+                  rm -rf $folder_name/assets
+                  cp -r test-results-$os/assets $folder_name/
+                fi
+                git add $folder_name
+                changes_made=true
+              else
+                echo "No changes for $os, skipping..."
+              fi
+            else
+              echo "No pytest-html report found for $os"
+            fi
+          done
+
+          if [ "$changes_made" = true ]; then
+            git commit -m "Update pytest-html reports on GitHub Pages"
+            git push origin ghpages
+            echo "DEPLOY_STATUS=updated" >> $GITHUB_ENV
+          else
+            echo "No changes to commit"
+            echo "DEPLOY_STATUS=unchanged" >> $GITHUB_ENV
+          fi
+      - name: Generate URL list
+        id: generate_url_list
+        run: |
+          IFS='/' read -ra REPO_INFO <<< "$GITHUB_REPOSITORY"
+          REPO_OWNER=${REPO_INFO[0]}
+          REPO_NAME=${REPO_INFO[1]}
+          URL_LIST=""
+          for os in ubuntu-latest macos-13; do
+            URL_LIST="${URL_LIST}pytest-html-report_${os}:\n\
+          https://${REPO_OWNER}.github.io/${REPO_NAME}/pytest-html-report_${os}/report_page.html\n\n"
+          done
+          echo "url_list<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$URL_LIST" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Send LINE Notify
+        if: env.DEPLOY_STATUS == 'updated'
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+        run: |
+          message="pytest-html report deployment completed. Changes were made.
+
+          Check URLs:
+          ${{ steps.generate_url_list.outputs.url_list }}"
+
+          curl -X POST https://notify-api.line.me/api/notify \
+            -H "Authorization: Bearer $LINE_NOTIFY_TOKEN" \
+            -F "message=${message}"
+      - name: Send LINE Notify (No Changes)
+        if: env.DEPLOY_STATUS == 'unchanged'
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+        run: |
+          message="pytest-html report check completed. No changes were necessary."
+
+          curl -X POST https://notify-api.line.me/api/notify \
+            -H "Authorization: Bearer $LINE_NOTIFY_TOKEN" \
+            -F "message=${message}"

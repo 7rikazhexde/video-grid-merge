@@ -32,7 +32,7 @@ taskipy = "^1.11.0"
 pytest-cov = "^4.1.0"
 pytest-mock = "^3.10.0"
 pre-commit = "^3.3.2"
-ruff = "^0.6.4"
+ruff = "^0.6.7"
 pytest-xdist = "^3.5.0"
 pytest-html = "^4.1.1"
 
@@ -44,11 +44,6 @@ build-backend = "poetry.core.masonry.api"
 target-version = ['py310']
 
 [tool.ruff]
-# Check Rules
-lint.select = ["E", "F", "I"]
-# Ignore Error
-lint.ignore = ["E402","E501"]
-# Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
     ".direnv",
@@ -72,10 +67,12 @@ exclude = [
     "node_modules",
     "venv",
 ]
-lint.per-file-ignores = {}
-
-# Assume Python 3.10.
 target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E402", "E501"]
+per-file-ignores = {}
 
 [tool.mypy]
 files = ["video_grid_merge","tests","ci"]
@@ -92,6 +89,7 @@ addopts = "--cov=video_grid_merge --cov-report=term-missing --cov-report=html"
 
 [tool.coverage.run]
 source = ["video_grid_merge"]
+branch = true
 
 [tool.coverage.report]
 exclude_lines = [

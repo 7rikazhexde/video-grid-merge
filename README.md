@@ -6,11 +6,19 @@ This project allows you to use FFmpeg to arrange video files stored in a specifi
 
 ## Pytest Coverage Comment
 
-[![Test Summary](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_summary.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_summary.yml) [![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
+[![Test Multi-OS](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_multi_os.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_multi_os.yml) [![Coverage Status](https://img.shields.io/badge/Coverage-check%20here-blue.svg)](https://github.com/7rikazhexde/video-grid-merge/tree/coverage)
 
 ## pytest-html
 
-[![ubuntu_latest](https://img.shields.io/badge/ubuntu_latest-url-success)](https://7rikazhexde.github.io/video-grid-merge/ubuntu-latest/report_page.html) [![macos-12](https://img.shields.io/badge/macos_12-url-success)](https://7rikazhexde.github.io/video-grid-merge/macos-12/report_page.html)
+[![pytest-html Report and Deploy Multi-OS](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_pytest-cov-report_deploy_multi_os.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_pytest-cov-report_deploy_multi_os.yml)
+
+[![ubuntu_latest](https://img.shields.io/badge/ubuntu_latest-url-brightgreen)](https://7rikazhexde.github.io/video-grid-merge/pytest-html-report_ubuntu-latest/report_page.html) [![macos-13](https://img.shields.io/badge/macos_13-url-ff69b4)](https://7rikazhexde.github.io/video-grid-merge/pytest-html-report_macos-13/report_page.html)
+
+## pytest-cov
+
+[![pytest-cov Report and Deploy Multi-OS](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_pytest-html-report_deploy_multi_os.yml/badge.svg)](https://github.com/7rikazhexde/video-grid-merge/actions/workflows/test_pytest-html-report_deploy_multi_os.yml)
+
+[![ubuntu_latest](https://img.shields.io/badge/ubuntu_latest-url-brightgreen)](https://7rikazhexde.github.io/video-grid-merge/pytest-cov-report_ubuntu-latest/index.html) [![macos-13](https://img.shields.io/badge/macos_13-url-ff69b4)](https://7rikazhexde.github.io/video-grid-merge/pytest-cov-report_macos-13/index.html)
 
 ## Screenshot
 
