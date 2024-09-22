@@ -29,11 +29,11 @@ repos:
       - id: poetry-lock
         verbose: true
       - id: poetry-export
-        args: ["-f", "requirements.txt", "-o", "requirements.txt"]
+        args: ["-f", "requirements.txt", "-o", "requirements.txt", "--without-hashes"]
         verbose: true
         files: ^pyproject\.toml$
       - id: poetry-export
-        args: ["--with", "dev", "-f", "requirements.txt", "-o", "requirements-dev.txt"]
+        args: ["--with", "dev", "-f", "requirements.txt", "-o", "requirements-dev.txt", "--without-hashes"]
         verbose: true
         files: ^pyproject\.toml$
 

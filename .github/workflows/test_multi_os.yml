@@ -1,70 +1,94 @@
-# Workflow for testing the project across multiple operating systems and Python versions.
-# This workflow runs on main branch pushes, pull requests to main, and can be manually triggered.
-# It performs unit tests, generates coverage reports, and updates the README with the latest coverage data.
+name: Test Multi-OS
 
-name: Multi-OS Test
+# ワークフローの処理の流れ:
+# 1. トリガー条件:
+#    - 手動実行
+#    - mainブランチへのプルリクエスト
+#    - mainブランチへのプッシュ（Version Updateワークフロー以外）
+# 2. ファイルの存在確認（Ubuntu環境）
+# 3. 複数の環境（OS、Pythonバージョン）でのテスト実行
+# 4. テスト結果に基づくREADMEの更新
+#    - pytest-coverage-commentアクション使用
+#      URL: https://github.com/marketplace/actions/pytest-coverage-comment
+# 5. 全テスト結果の確認
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - '*'
   pull_request:
+    branches:
+      - 'main'
+  push:
     branches:
       - 'main'
 
 jobs:
+  check_file:
+    runs-on: ubuntu-latest
+    outputs:
+      file_exists: ${{ steps.check_file.outputs.file_exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check file existence
+        id: check_file
+        run: |
+          if find . -name "ton_whales_staking_dashboard.py" -print -quit | grep -q .; then
+            echo "file_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "file_exists=false" >> $GITHUB_OUTPUT
+          fi
+
   test:
+    needs: check_file
+    if: github.actor != 'dependabot[bot]' && !startsWith(github.event.head_commit.message, 'Bump version') && !contains(github.ref, 'version-update')
     strategy:
       matrix:
-        os: [macos-12, ubuntu-latest]
-        python-version: ['3.10', '3.11', '3.12']
+        os: [macos-13, ubuntu-latest]
+        python-version: ['3.11', '3.12']
     runs-on: ${{ matrix.os }}
     env:
-      # タイムゾーンを東京時間に設定
       TZ: 'Asia/Tokyo'
     permissions:
       contents: write
       pull-requests: write
     steps:
-      # リポジトリをチェックアウト
       - uses: actions/checkout@v4
-      # Python環境のセットアップ
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{matrix.python-version}}
-      # ffmpegのインストール
       - name: Install FFmpeg (macOS)
-        if: matrix.os == 'macos-12'
+        if: matrix.os == 'macos-13'
         run: brew install ffmpeg
       - name: Install FFmpeg (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      # Windowsのタイムゾーン設定
-      - name: Set timezone on Windows
-        if: runner.os == 'Windows'
-        run: tzutil /s "Tokyo Standard Time"
-        shell: cmd
+      - name: Set timezone
+        uses: szenius/set-timezone@v2.0
+        with:
+          timezoneLinux: "Asia/Tokyo"
+          timezoneMacos: "Asia/Tokyo"
+          timezoneWindows: "Tokyo Standard Time"
+      - name: Check timezone
+        shell: bash
+        run: |
+          echo "System date: $(date)"
+          echo "TZ environment variable: $TZ"
+          python -c "import datetime, platform; print(f'Python timezone: {datetime.datetime.now().astimezone().tzinfo}'); print(f'OS: {platform.system()}')"
       - name: Install poetry
-        # poetryのインストール
         run: pip install poetry
       - name: Cache dependencies
-        #キャッシュの活用
         uses: actions/cache@v4
         with:
           path: ~/.cache/pypoetry
           key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
-        # Poetryで依存関係をインストール
         run: poetry install
       - name: Run test
         id: pytest
-        # エラーが発生しても続行する
         continue-on-error: true
         #run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report "xml:coverage.xml" --cov=video_grid_merge tests/ | tee pytest-coverage.txt
         run: poetry run task test_gh_action_xml
       - name: Pytest coverage comment
-        # カバレッジレポートをコメントとして生成
         id: coverageComment
         uses: MishaKav/pytest-coverage-comment@main
         with:
@@ -88,10 +112,8 @@ jobs:
           exit 1
       - name: Save summary report
         run: |
-          # カバレッジのサマリーレポートをMarkdownファイルとして保存
           echo '${{ steps.coverageComment.outputs.summaryReport }}' > summary-report.md
       - name: Upload coverage data
-        # カバレッジデータをアップロード
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
@@ -106,9 +128,9 @@ jobs:
             summary-report.md
 
   update_readme:
-    needs: test
+    needs: [check_file, test]
     runs-on: ubuntu-latest
-    if: always()
+    if: github.actor != 'dependabot[bot]' && !startsWith(github.event.head_commit.message, 'Bump version') && !contains(github.ref, 'version-update') && always()
     permissions:
       contents: write
       pull-requests: write
@@ -130,19 +152,37 @@ jobs:
 
           # README.mdのヘッダーとバッジを追加
           echo "# Coverage Reports" > README.md
-          echo "[![](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_branch.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_branch.yml)" >> README.md
+          echo "[![](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_multi_os.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_multi_os.yml)" >> README.md
           echo "" >> README.md
 
           # 最新のコミット情報をREADMEに追加
-          commit_hash=${GITHUB_SHA::8}
-          commit_link="[$commit_hash](https://github.com/$GITHUB_REPOSITORY/tree/$commit_hash)"
+          commit_hash8=${GITHUB_SHA::8}
+          commit_link="[$commit_hash8](https://github.com/$GITHUB_REPOSITORY/tree/$commit_hash8)"
           echo -e "> [!Note]" >> README.md
           echo -e "> " >> README.md
           echo -e "> Commit: $commit_link" >> README.md
-          echo -e "" >> README.md  # この行を追加
+          echo -e "" >> README.md
+
+          # テスト対象外のファイルに関する注記を追加（ファイルの存在確認結果に基づく）
+          commit_hash=${GITHUB_SHA}
+          file_path_1="ton_txns_data_conv/staking/ton_whales_staking_dashboard.py"
+          file_path_2="staking/ton_whales_staking_dashboard.py"
+          # 後述するカバレッジレポートのリンク修正のためプログラムのソースコードディレクトリを除いたリンクにする
+          file_link="https://github.com/$GITHUB_REPOSITORY/blob/$commit_hash/$file_path_2"
+
+          if [[ "${{ needs.check_file.outputs.file_exists }}" == "true" ]]; then
+            echo -e "> [!Important]" >> README.md
+            echo -e "> The following file is intentionally excluded from test coverage:" >> README.md
+            echo -e "> - [$file_path_1]($file_link)" >> README.md
+            echo -e "> " >> README.md
+            echo -e "> This file contains complex external dependencies and is verified through manual and integration testing." >> README.md
+            echo -e "> " >> README.md
+          else
+            echo "Note: File $file_path_1 not found. Skipping addition to README.md." >&2
+          fi
 
           # macOS、Ubuntuの各OSとPythonバージョンごとにカバレッジレポートを追加
-          for os in macos-12 ubuntu-latest; do
+          for os in macos-13 ubuntu-latest; do
             for version in 3.11 3.12; do
               echo "## Coverage Report (os: $os / python-version: $version)" >> README.md
               if [ -f "coverage-data-$os-$version/summary-report.md" ]; then
@@ -157,10 +197,10 @@ jobs:
             done
           done
 
-          # ファイルパスを修正する
+          # カバレッジレポート内のリンクを有効にするためにファイルパスを修正する
           sed -i '
-            s|/blob/\([a-f0-9]*\)/\([^"]*\)|/blob/\1/video_grid_merge/\2|g;
-            s|/blob/\([a-f0-9]*\)/video_grid_merge/README\.md|/blob/\1/README.md|g
+            s|/blob/\([a-f0-9]*\)/\([^"]*\)|/blob/\1/ton_txns_data_conv/\2|g;
+            s|/blob/\([a-f0-9]*\)/ton_txns_data_conv/README\.md|/blob/\1/README.md|g
           ' README.md
       - name: Commit and push
         run: |
