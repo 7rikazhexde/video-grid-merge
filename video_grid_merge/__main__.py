@@ -168,6 +168,43 @@ def get_video_length_ffmpeg(file_path: str) -> Union[float, None]:
         return None
 
 
+@lru_cache(maxsize=None)
+def get_video_fps(file_path: str) -> Optional[float]:
+    """
+    Get the frame rate (FPS) of a video file using ffprobe.
+
+    This function is cached to improve performance for repeated calls.
+
+    Args:
+        file_path (str): The path to the video file.
+
+    Returns:
+        Optional[float]: The frame rate of the video, or None if it cannot be determined.
+    """
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=r_frame_rate",
+        "-of",
+        "csv=p=0",
+        file_path,
+    ]
+    try:
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode().strip()
+        # r_frame_rate is returned as a fraction (e.g., "30000/1001" or "30/1")
+        if "/" in output:
+            num, den = map(int, output.split("/"))
+            return num / den if den != 0 else None
+        return float(output)
+    except (subprocess.CalledProcessError, ValueError) as e:
+        print(f"Error getting FPS for {file_path}: {e}")
+        return None
+
+
 def process_video(input_folder: str, file: str, max_length: float) -> None:
     """
     Process a single video file, either by linking or concatenating it to match the max_length.
@@ -336,10 +373,11 @@ def create_ffmpeg_command_v1(
     into a single output video with a grid layout. It scales all input videos to the
     same resolution, stacks them into a grid, and applies a sophisticated audio mixing process.
     The command uses the 'ultrafast' preset of the libx264 codec for rapid encoding,
-    prioritizing speed while maintaining high audio quality.
+    prioritizing speed while maintaining high audio quality and proper frame rate.
 
     Features:
     - Scales all input videos to the same size without maintaining aspect ratio
+    - Maintains the frame rate of the first input video
     - Arranges videos in a grid layout based on the square root of the number of input files
     - Applies volume normalization to each input audio stream for consistent audio levels
     - Uses a sophisticated audio mixing process with dropout transition and volume adjustment
@@ -359,8 +397,8 @@ def create_ffmpeg_command_v1(
         str: The ffmpeg command string with advanced video layout and audio processing.
 
     Note:
-        This function prioritizes both speed in video processing and quality in audio output,
-        making it suitable for projects where quick rendering and audio clarity are important.
+        This function prioritizes speed in video processing and quality in audio output,
+        while maintaining smooth playback with proper frame rate handling.
     """
     if not input_files:
         return ""
@@ -368,6 +406,11 @@ def create_ffmpeg_command_v1(
     video_size = get_video_size(input_files[0])
     if video_size is None:
         return ""
+
+    # Get FPS from the first video
+    fps = get_video_fps(input_files[0])
+    if fps is None:
+        fps = 30.0  # Default to 30fps if unable to detect
 
     video_width, video_height = video_size
 
@@ -381,8 +424,12 @@ def create_ffmpeg_command_v1(
         output_width = video_width
         output_height = video_height
 
+    # Build filter complex with FPS setting
     filter_complex = "".join(
-        [f"[{i}:v]scale={video_width}:{video_height}[v{i}]; " for i in range(N)]
+        [
+            f"[{i}:v]scale={video_width}:{video_height},fps={fps}[v{i}]; "
+            for i in range(N)
+        ]
     )
     filter_complex += "".join(
         [
@@ -399,7 +446,7 @@ def create_ffmpeg_command_v1(
         f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
         f'-filter_complex "{filter_complex}" '
         f'-map "[vstack]" -map "[aout]" '
-        f"-c:v libx264 -preset ultrafast "
+        f"-c:v libx264 -preset ultrafast -r {fps} "
         f"-c:a aac -b:a 192k -threads {os.cpu_count()} -loglevel {ffmpeg_loglevel} "
         f"-s {output_width}x{output_height} {output_path}"
     )
@@ -415,10 +462,11 @@ def create_ffmpeg_command_v2(
     into a single output video with a grid layout. It scales all input videos to the
     same resolution, stacks them into a grid, and applies sophisticated audio mixing.
     The command balances encoding efficiency and output quality, prioritizing file size
-    reduction while maintaining good visual and audio quality.
+    reduction while maintaining good visual and audio quality and proper frame rate.
 
     Features:
     - Scales all input videos to the same size without maintaining aspect ratio
+    - Maintains the frame rate of the first input video
     - Arranges videos in a grid layout based on the square root of the number of input files
     - Applies volume normalization to each input audio stream for consistent audio levels
     - Uses a sophisticated audio mixing process with dropout transition and volume adjustment
@@ -440,8 +488,7 @@ def create_ffmpeg_command_v2(
 
     Note:
         This function aims to produce smaller file sizes compared to the fastest encoding
-        options, while still maintaining good visual quality and audio clarity. It's suitable
-        for projects where file size is a concern but quality cannot be significantly compromised.
+        options, while still maintaining good visual quality, audio clarity, and smooth playback.
     """
     if not input_files:
         return ""
@@ -449,6 +496,11 @@ def create_ffmpeg_command_v2(
     video_size = get_video_size(input_files[0])
     if video_size is None:
         return ""
+
+    # Get FPS from the first video
+    fps = get_video_fps(input_files[0])
+    if fps is None:
+        fps = 30.0  # Default to 30fps if unable to detect
 
     video_width, video_height = video_size
 
@@ -462,8 +514,12 @@ def create_ffmpeg_command_v2(
         output_width = video_width
         output_height = video_height
 
+    # Build filter complex with FPS setting
     filter_complex = "".join(
-        [f"[{i}:v]scale={video_width}:{video_height}[v{i}]; " for i in range(N)]
+        [
+            f"[{i}:v]scale={video_width}:{video_height},fps={fps}[v{i}]; "
+            for i in range(N)
+        ]
     )
     filter_complex += "".join(
         [
@@ -480,7 +536,7 @@ def create_ffmpeg_command_v2(
         f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
         f'-filter_complex "{filter_complex}" '
         f'-map "[vstack]" -map "[aout]" '
-        f"-c:v libx264 -preset medium -crf 23 "
+        f"-c:v libx264 -preset medium -crf 23 -r {fps} "
         f"-c:a aac -b:a 128k -threads {os.cpu_count()} -loglevel {ffmpeg_loglevel} "
         f"-s {output_width}x{output_height} {output_path}"
     )
@@ -496,6 +552,11 @@ def create_gpu_ffmpeg_command(
     if video_size is None:
         return ""
 
+    # Get FPS from the first video
+    fps = get_video_fps(input_files[0])
+    if fps is None:
+        fps = 30.0  # Default to 30fps if unable to detect
+
     video_width, video_height = video_size
 
     N = len(input_files)
@@ -509,7 +570,10 @@ def create_gpu_ffmpeg_command(
         output_height = video_height
 
     filter_complex = "".join(
-        [f"[{i}:v]scale={video_width}:{video_height}[v{i}]; " for i in range(N)]
+        [
+            f"[{i}:v]scale={video_width}:{video_height},fps={fps}[v{i}]; "
+            for i in range(N)
+        ]
     )
     filter_complex += "".join(
         [
@@ -526,7 +590,7 @@ def create_gpu_ffmpeg_command(
         f"ffmpeg -y {' '.join([f'-i {input_file}' for input_file in input_files])} "
         f'-filter_complex "{filter_complex}" '
         f'-map "[vstack]" -map "[aout]" '
-        f"-c:v h264_nvenc -preset p7 "
+        f"-c:v h264_nvenc -preset p7 -r {fps} "
         f"-c:a aac -b:a 192k -threads {os.cpu_count()} -loglevel {ffmpeg_loglevel} "
         f"-s {output_width}x{output_height} {output_path}"
     )
