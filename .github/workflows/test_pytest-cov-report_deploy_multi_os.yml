@@ -10,7 +10,7 @@ name: pytest-cov Report and Deploy Multi-OS
 # 6. 全テスト結果の確認
 # 7. GitHub Pagesへのデプロイ
 # 8. デプロイしたレポートのURL生成
-# 9. LINE通知の送信
+# 9. Discord通知の送信
 
 on:
   # pytest-cov Reportを単体で実行する場合

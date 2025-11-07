@@ -11,7 +11,7 @@ name: pytest-html Report and Deploy Multi-OS
 # 5. 全テスト結果の確認
 # 6. mainブランチへのプッシュ時のみ、変更がある場合にGitHub Pagesへデプロイ
 # 7. デプロイしたレポートのURL生成
-# 8. 変更の有無に応じたLINE通知の送信
+# 8. 変更の有無に応じたDiscord通知の送信
 
 on:
   workflow_dispatch:
