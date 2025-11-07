@@ -20,12 +20,33 @@ def test_get_video_files(tmp_path: Any) -> None:
     assert sorted(video_files) == ["video1.mp4", "video2.mov"]
 
 
-def test_get_video_length_ffmpeg() -> None:
+def test_get_video_length_ffmpeg(monkeypatch: Any) -> None:
+    class MockProcess:
+        def __init__(self, output: bytes) -> None:
+            self.output = output
+
+        def communicate(self) -> tuple[bytes, None]:
+            return (self.output, None)
+
+    def mock_popen_success(*args: Any, **kwargs: Any) -> MockProcess:
+        # Mock output with duration 62.43 seconds = 00:01:02.43
+        return MockProcess(b"Duration: 00:01:02.43, start: 0.000000")
+
+    def mock_popen_failure(*args: Any, **kwargs: Any) -> None:
+        raise FileNotFoundError("No such file")
+
+    # Test successful case
+    monkeypatch.setattr(subprocess, "Popen", mock_popen_success)
     file_path = os.path.join(base_dir, "test_data/input/get_videos/sample1.mov")
     expected_duration = 62.43
     duration = main.get_video_length_ffmpeg(file_path)
     assert duration == expected_duration
 
+    # Clear cache before second test
+    main.get_video_length_ffmpeg.cache_clear()
+
+    # Test failure case
+    monkeypatch.setattr(subprocess, "Popen", mock_popen_failure)
     file_path = "invalid_video.mp4"
     duration = main.get_video_length_ffmpeg(file_path)
     assert duration is None
@@ -40,6 +61,44 @@ def test_get_video_length_ffmpeg_invalid_command(monkeypatch: Any) -> None:
     file_path = "sample1.mov"
     duration = main.get_video_length_ffmpeg(file_path)
     assert duration is None
+
+
+def test_get_video_length_ffmpeg_success(monkeypatch: Any, capsys: Any) -> None:
+    # Clear cache before test
+    main.get_video_length_ffmpeg.cache_clear()
+
+    class MockProcess:
+        def communicate(self) -> tuple[bytes, None]:
+            return (b"Duration: 01:02:34.56, start: 0.000000", None)
+
+    def mock_popen(*args: Any, **kwargs: Any) -> MockProcess:
+        return MockProcess()
+
+    monkeypatch.setattr(subprocess, "Popen", mock_popen)
+
+    file_path = "sample_success.mov"
+    duration = main.get_video_length_ffmpeg(file_path)
+    assert duration == 3754.56  # 1*3600 + 2*60 + 34.56
+
+
+def test_get_video_length_ffmpeg_no_match(monkeypatch: Any, capsys: Any) -> None:
+    # Clear cache before test
+    main.get_video_length_ffmpeg.cache_clear()
+
+    class MockProcess:
+        def communicate(self) -> tuple[bytes, None]:
+            return (b"Invalid output without duration", None)
+
+    def mock_popen(*args: Any, **kwargs: Any) -> MockProcess:
+        return MockProcess()
+
+    monkeypatch.setattr(subprocess, "Popen", mock_popen)
+
+    file_path = "sample_nomatch.mov"
+    duration = main.get_video_length_ffmpeg(file_path)
+    assert duration is None
+    captured = capsys.readouterr()
+    assert "Failed to extract duration from FFmpeg output" in captured.out
 
 
 @pytest.mark.parametrize(
