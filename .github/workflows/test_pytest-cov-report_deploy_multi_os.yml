@@ -22,7 +22,7 @@ on:
   workflow_run:
     workflows: ["pytest-html Report and Deploy Multi-OS"]
     types:
-      - completed
+    - completed
 
 jobs:
   test-and-coverage:
@@ -40,191 +40,191 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install FFmpeg (macOS)
-        if: matrix.os == 'macos-13'
-        run: brew install ffmpeg
-      - name: Install FFmpeg (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Set timezone
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneLinux: "Asia/Tokyo"
-          timezoneMacos: "Asia/Tokyo"
-          timezoneWindows: "Tokyo Standard Time"
-      - name: Install poetry
-        run: pip install poetry
-      - name: Install dependencies
-        run: poetry install
-      - name: Run tests with pytest-cov
-        id: pytest-cov
-        run: |
-          mkdir -p htmlcov_${{ matrix.os }}
-          poetry run pytest --cov=ton_txns_data_conv --cov-report=html:htmlcov_${{ matrix.os }}
-        shell: bash
-      - name: Upload pytest-cov results
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-results-${{ matrix.os }}
-          path: htmlcov_${{ matrix.os }}
-        if: always()
+    - uses: actions/checkout@v5.0.0
+    - name: Set up Python
+      uses: actions/setup-python@v6.0.0
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install FFmpeg (macOS)
+      if: matrix.os == 'macos-13'
+      run: brew install ffmpeg
+    - name: Install FFmpeg (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+    - name: Set timezone
+      uses: szenius/set-timezone@v2.0
+      with:
+        timezoneLinux: "Asia/Tokyo"
+        timezoneMacos: "Asia/Tokyo"
+        timezoneWindows: "Tokyo Standard Time"
+    - name: Install poetry
+      run: pip install poetry
+    - name: Install dependencies
+      run: poetry install
+    - name: Run tests with pytest-cov
+      id: pytest-cov
+      run: |
+        mkdir -p htmlcov_${{ matrix.os }}
+        poetry run pytest --cov=ton_txns_data_conv --cov-report=html:htmlcov_${{ matrix.os }}
+      shell: bash
+    - name: Upload pytest-cov results
+      uses: actions/upload-artifact@v5.0.0
+      with:
+        name: coverage-results-${{ matrix.os }}
+        path: htmlcov_${{ matrix.os }}
+      if: always()
 
   check_all_tests:
     needs: test-and-coverage
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Check test results
-        if: contains(needs.test-and-coverage.result, 'failure')
-        run: |
-          echo "Some tests failed. Please check the test results and fix any issues before merging."
-          exit 1
+    - name: Check test results
+      if: contains(needs.test-and-coverage.result, 'failure')
+      run: |
+        echo "Some tests failed. Please check the test results and fix any issues before merging."
+        exit 1
 
   deploy:
     needs: [test-and-coverage, check_all_tests]
     runs-on: ubuntu-latest
     if: success()
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Download pytest-cov artifacts
-        uses: actions/download-artifact@v4
-      - name: Setup Git
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-      - name: Check and Deploy to GitHub Pages
-        run: |
-          git fetch origin ghpages:ghpages || git checkout -b ghpages
-          git checkout ghpages
+    - uses: actions/checkout@v5.0.0
+      with:
+        fetch-depth: 0
+    - name: Download pytest-cov artifacts
+      uses: actions/download-artifact@v6.0.0
+    - name: Setup Git
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+    - name: Check and Deploy to GitHub Pages
+      run: |
+        git fetch origin ghpages:ghpages || git checkout -b ghpages
+        git checkout ghpages
 
-          changes_made=false
-          for os in ubuntu-latest macos-13; do
-            folder_name="pytest-cov-report_${os}"
-            if [ -d coverage-results-$os ]; then
-              if [ ! -d $folder_name ] || ! diff -r coverage-results-$os $folder_name > /dev/null; then
-                echo "Changes detected for $os, updating..."
-                rm -rf $folder_name
-                mv coverage-results-$os $folder_name
-                git add $folder_name
-                changes_made=true
-              else
-                echo "No changes for $os, skipping..."
-              fi
+        changes_made=false
+        for os in ubuntu-latest macos-13; do
+          folder_name="pytest-cov-report_${os}"
+          if [ -d coverage-results-$os ]; then
+            if [ ! -d $folder_name ] || ! diff -r coverage-results-$os $folder_name > /dev/null; then
+              echo "Changes detected for $os, updating..."
+              rm -rf $folder_name
+              mv coverage-results-$os $folder_name
+              git add $folder_name
+              changes_made=true
             else
-              echo "No pytest-cov report found for $os"
+              echo "No changes for $os, skipping..."
             fi
-          done
-
-          if [ "$changes_made" = true ]; then
-            git commit -m "Update pytest-cov reports on GitHub Pages"
-            git push origin ghpages
-            echo "DEPLOY_STATUS=updated" >> $GITHUB_ENV
           else
-            echo "No changes to commit"
-            echo "DEPLOY_STATUS=unchanged" >> $GITHUB_ENV
+            echo "No pytest-cov report found for $os"
           fi
-      - name: Generate URL list
-        id: generate_url_list
-        run: |
-          IFS='/' read -ra REPO_INFO <<< "$GITHUB_REPOSITORY"
-          REPO_OWNER=${REPO_INFO[0]}
-          REPO_NAME=${REPO_INFO[1]}
-          URL_LIST=""
-          for os in ubuntu-latest macos-13; do
-            URL_LIST="${URL_LIST}pytest-cov-report_${os}:\n\
-          https://${REPO_OWNER}.github.io/${REPO_NAME}/pytest-cov-report_${os}/index.html\n\n"
-          done
-          echo "url_list<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$URL_LIST" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      - name: Send Discord Notification (Updated)
-        if: env.DEPLOY_STATUS == 'updated'
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          message="pytest-cov report deployment completed. Changes were made.
+        done
 
-          **Check URLs:**
-          ${{ steps.generate_url_list.outputs.url_list }}"
+        if [ "$changes_made" = true ]; then
+          git commit -m "Update pytest-cov reports on GitHub Pages"
+          git push origin ghpages
+          echo "DEPLOY_STATUS=updated" >> $GITHUB_ENV
+        else
+          echo "No changes to commit"
+          echo "DEPLOY_STATUS=unchanged" >> $GITHUB_ENV
+        fi
+    - name: Generate URL list
+      id: generate_url_list
+      run: |
+        IFS='/' read -ra REPO_INFO <<< "$GITHUB_REPOSITORY"
+        REPO_OWNER=${REPO_INFO[0]}
+        REPO_NAME=${REPO_INFO[1]}
+        URL_LIST=""
+        for os in ubuntu-latest macos-13; do
+          URL_LIST="${URL_LIST}pytest-cov-report_${os}:\n\
+        https://${REPO_OWNER}.github.io/${REPO_NAME}/pytest-cov-report_${os}/index.html\n\n"
+        done
+        echo "url_list<<EOF" >> $GITHUB_OUTPUT
+        echo -e "$URL_LIST" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Send Discord Notification (Updated)
+      if: env.DEPLOY_STATUS == 'updated'
+      env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        message="pytest-cov report deployment completed. Changes were made.
 
-          timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          json_payload=$(jq -n \
-            --arg title "pytest-cov Report Deployment" \
-            --arg description "$message" \
-            --arg workflow "$workflow_url" \
-            --argjson color 65280 \
-            --arg timestamp "$timestamp" \
-            '{
-              "embeds": [
-                {
-                  "title": $title,
-                  "description": $description,
-                  "color": $color,
-                  "timestamp": $timestamp,
-                  "fields": [
-                    {
-                      "name": "Workflow Details",
-                      "value": "[View on GitHub](\($workflow))"
-                    }
-                  ]
-                }
-              ]
-            }')
+        **Check URLs:**
+        ${{ steps.generate_url_list.outputs.url_list }}"
 
-          if [[ ! $DISCORD_WEBHOOK_URL =~ ^https://discord(app)?.com/api/webhooks/ ]]; then
-            echo "Error: Invalid Discord webhook URL format. Please check your secret configuration."
-            exit 1
-          fi
+        timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        json_payload=$(jq -n \
+          --arg title "pytest-cov Report Deployment" \
+          --arg description "$message" \
+          --arg workflow "$workflow_url" \
+          --argjson color 65280 \
+          --arg timestamp "$timestamp" \
+          '{
+            "embeds": [
+              {
+                "title": $title,
+                "description": $description,
+                "color": $color,
+                "timestamp": $timestamp,
+                "fields": [
+                  {
+                    "name": "Workflow Details",
+                    "value": "[View on GitHub](\($workflow))"
+                  }
+                ]
+              }
+            ]
+          }')
 
-          curl -X POST -H "Content-Type: application/json" \
-            -d "$json_payload" \
-            "$DISCORD_WEBHOOK_URL"
+        if [[ ! $DISCORD_WEBHOOK_URL =~ ^https://discord(app)?.com/api/webhooks/ ]]; then
+          echo "Error: Invalid Discord webhook URL format. Please check your secret configuration."
+          exit 1
+        fi
 
-      - name: Send Discord Notification (No Changes)
-        if: env.DEPLOY_STATUS == 'unchanged'
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          message="pytest-cov report check completed. No changes were necessary."
+        curl -X POST -H "Content-Type: application/json" \
+          -d "$json_payload" \
+          "$DISCORD_WEBHOOK_URL"
 
-          timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          json_payload=$(jq -n \
-            --arg title "pytest-cov Report Check" \
-            --arg description "$message" \
-            --arg workflow "$workflow_url" \
-            --argjson color 8421504 \
-            --arg timestamp "$timestamp" \
-            '{
-              "embeds": [
-                {
-                  "title": $title,
-                  "description": $description,
-                  "color": $color,
-                  "timestamp": $timestamp,
-                  "fields": [
-                    {
-                      "name": "Workflow Details",
-                      "value": "[View on GitHub](\($workflow))"
-                    }
-                  ]
-                }
-              ]
-            }')
+    - name: Send Discord Notification (No Changes)
+      if: env.DEPLOY_STATUS == 'unchanged'
+      env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        message="pytest-cov report check completed. No changes were necessary."
 
-          if [[ ! $DISCORD_WEBHOOK_URL =~ ^https://discord(app)?.com/api/webhooks/ ]]; then
-            echo "Error: Invalid Discord webhook URL format. Please check your secret configuration."
-            exit 1
-          fi
+        timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        json_payload=$(jq -n \
+          --arg title "pytest-cov Report Check" \
+          --arg description "$message" \
+          --arg workflow "$workflow_url" \
+          --argjson color 8421504 \
+          --arg timestamp "$timestamp" \
+          '{
+            "embeds": [
+              {
+                "title": $title,
+                "description": $description,
+                "color": $color,
+                "timestamp": $timestamp,
+                "fields": [
+                  {
+                    "name": "Workflow Details",
+                    "value": "[View on GitHub](\($workflow))"
+                  }
+                ]
+              }
+            ]
+          }')
 
-          curl -X POST -H "Content-Type: application/json" \
-            -d "$json_payload" \
-            "$DISCORD_WEBHOOK_URL"
+        if [[ ! $DISCORD_WEBHOOK_URL =~ ^https://discord(app)?.com/api/webhooks/ ]]; then
+          echo "Error: Invalid Discord webhook URL format. Please check your secret configuration."
+          exit 1
+        fi
+
+        curl -X POST -H "Content-Type: application/json" \
+          -d "$json_payload" \
+          "$DISCORD_WEBHOOK_URL"

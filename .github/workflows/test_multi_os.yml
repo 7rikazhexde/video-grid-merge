@@ -16,10 +16,10 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - 'main'
+    - 'main'
   push:
     branches:
-      - 'main'
+    - 'main'
 
 jobs:
   check_file:
@@ -27,15 +27,15 @@ jobs:
     outputs:
       file_exists: ${{ steps.check_file.outputs.file_exists }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Check file existence
-        id: check_file
-        run: |
-          if find . -name "ton_whales_staking_dashboard.py" -print -quit | grep -q .; then
-            echo "file_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "file_exists=false" >> $GITHUB_OUTPUT
-          fi
+    - uses: actions/checkout@v5.0.0
+    - name: Check file existence
+      id: check_file
+      run: |
+        if find . -name "ton_whales_staking_dashboard.py" -print -quit | grep -q .; then
+          echo "file_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "file_exists=false" >> $GITHUB_OUTPUT
+        fi
 
   test:
     needs: check_file
@@ -51,81 +51,81 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{matrix.python-version}}
-      - name: Install FFmpeg (macOS)
-        if: matrix.os == 'macos-13'
-        run: brew install ffmpeg
-      - name: Install FFmpeg (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Set timezone
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneLinux: "Asia/Tokyo"
-          timezoneMacos: "Asia/Tokyo"
-          timezoneWindows: "Tokyo Standard Time"
-      - name: Check timezone
-        shell: bash
-        run: |
-          echo "System date: $(date)"
-          echo "TZ environment variable: $TZ"
-          python -c "import datetime, platform; print(f'Python timezone: {datetime.datetime.now().astimezone().tzinfo}'); print(f'OS: {platform.system()}')"
-      - name: Install poetry
-        run: pip install poetry
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-      - name: Install dependencies
-        run: poetry install
-      - name: Run test
-        id: pytest
-        continue-on-error: true
+    - uses: actions/checkout@v5.0.0
+    - name: Set up Python
+      uses: actions/setup-python@v6.0.0
+      with:
+        python-version: ${{matrix.python-version}}
+    - name: Install FFmpeg (macOS)
+      if: matrix.os == 'macos-13'
+      run: brew install ffmpeg
+    - name: Install FFmpeg (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+    - name: Set timezone
+      uses: szenius/set-timezone@v2.0
+      with:
+        timezoneLinux: "Asia/Tokyo"
+        timezoneMacos: "Asia/Tokyo"
+        timezoneWindows: "Tokyo Standard Time"
+    - name: Check timezone
+      shell: bash
+      run: |
+        echo "System date: $(date)"
+        echo "TZ environment variable: $TZ"
+        python -c "import datetime, platform; print(f'Python timezone: {datetime.datetime.now().astimezone().tzinfo}'); print(f'OS: {platform.system()}')"
+    - name: Install poetry
+      run: pip install poetry
+    - name: Cache dependencies
+      uses: actions/cache@v4.3.0
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+    - name: Install dependencies
+      run: poetry install
+    - name: Run test
+      id: pytest
+      continue-on-error: true
         #run: poetry run pytest --durations=0 --junitxml=pytest.xml --cov-report "xml:coverage.xml" --cov=video_grid_merge tests/ | tee pytest-coverage.txt
-        run: poetry run task test_gh_action_xml
-      - name: Pytest coverage comment
-        id: coverageComment
-        uses: MishaKav/pytest-coverage-comment@main
-        with:
-          pytest-coverage-path: ./pytest-coverage.txt
-          pytest-xml-coverage-path: ./coverage.xml
-          title: Coverage Report (${{ matrix.os }} / Python ${{ matrix.python-version }})
-          badge-title: coverage
-          hide-badge: false
-          hide-report: false
-          create-new-comment: false
-          hide-comment: false
-          report-only-changed-files: false
-          remove-link-from-badge: false
-          junitxml-path: ./pytest.xml
-          junitxml-title: "Pytest Result Summary (os: ${{ matrix.os }} / python-version: ${{ matrix.python-version }})"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Check test results
-        if: steps.pytest.outcome == 'failure'
-        run: |
-          echo "Tests failed. This will prevent merging the pull request."
-          exit 1
-      - name: Save summary report
-        run: |
-          echo '${{ steps.coverageComment.outputs.summaryReport }}' > summary-report.md
-      - name: Upload coverage data
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
-          path: |
-            # pytestの出力テキスト（テストの実行結果とカバレッジデータ）
-            pytest-coverage.txt
-            # カバレッジデータのXML形式ファイル（詳細なカバレッジ情報）
-            coverage.xml
-            # テスト結果のJUnit XMLレポート（テストの成功/失敗や詳細なタイムスタンプ情報を含む）
-            pytest.xml
-            # カバレッジとテスト結果のサマリー（Markdown形式で出力したレポート）
-            summary-report.md
+      run: poetry run task test_gh_action_xml
+    - name: Pytest coverage comment
+      id: coverageComment
+      uses: MishaKav/pytest-coverage-comment@v1.1.57
+      with:
+        pytest-coverage-path: ./pytest-coverage.txt
+        pytest-xml-coverage-path: ./coverage.xml
+        title: Coverage Report (${{ matrix.os }} / Python ${{ matrix.python-version }})
+        badge-title: coverage
+        hide-badge: false
+        hide-report: false
+        create-new-comment: false
+        hide-comment: false
+        report-only-changed-files: false
+        remove-link-from-badge: false
+        junitxml-path: ./pytest.xml
+        junitxml-title: "Pytest Result Summary (os: ${{ matrix.os }} / python-version: ${{ matrix.python-version }})"
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Check test results
+      if: steps.pytest.outcome == 'failure'
+      run: |
+        echo "Tests failed. This will prevent merging the pull request."
+        exit 1
+    - name: Save summary report
+      run: |
+        echo '${{ steps.coverageComment.outputs.summaryReport }}' > summary-report.md
+    - name: Upload coverage data
+      uses: actions/upload-artifact@v5.0.0
+      with:
+        name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
+        path: |
+          # pytestの出力テキスト（テストの実行結果とカバレッジデータ）
+          pytest-coverage.txt
+          # カバレッジデータのXML形式ファイル（詳細なカバレッジ情報）
+          coverage.xml
+          # テスト結果のJUnit XMLレポート（テストの成功/失敗や詳細なタイムスタンプ情報を含む）
+          pytest.xml
+          # カバレッジとテスト結果のサマリー（Markdown形式で出力したレポート）
+          summary-report.md
 
   update_readme:
     needs: [check_file, test]
@@ -135,89 +135,89 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-      - name: Update README in coverage branch
-        run: |
-          # "coverage" ブランチが存在する場合はチェックアウト、存在しない場合は新規作成する
-          if git ls-remote --heads origin coverage | grep coverage; then
-            git checkout coverage
-          else
-            git checkout --orphan coverage
-            git rm -rf .
-          fi
+    - uses: actions/checkout@v5.0.0
+      with:
+        fetch-depth: 0
+    - name: Download all artifacts
+      uses: actions/download-artifact@v6.0.0
+    - name: Update README in coverage branch
+      run: |
+        # "coverage" ブランチが存在する場合はチェックアウト、存在しない場合は新規作成する
+        if git ls-remote --heads origin coverage | grep coverage; then
+          git checkout coverage
+        else
+          git checkout --orphan coverage
+          git rm -rf .
+        fi
 
-          # README.mdのヘッダーとバッジを追加
-          echo "# Coverage Reports" > README.md
-          echo "[![](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_multi_os.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_multi_os.yml)" >> README.md
-          echo "" >> README.md
+        # README.mdのヘッダーとバッジを追加
+        echo "# Coverage Reports" > README.md
+        echo "[![](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_multi_os.yml/badge.svg)](https://github.com/$GITHUB_REPOSITORY/actions/workflows/test_multi_os.yml)" >> README.md
+        echo "" >> README.md
 
-          # 最新のコミット情報をREADMEに追加
-          commit_hash8=${GITHUB_SHA::8}
-          commit_link="[$commit_hash8](https://github.com/$GITHUB_REPOSITORY/tree/$commit_hash8)"
-          echo -e "> [!Note]" >> README.md
+        # 最新のコミット情報をREADMEに追加
+        commit_hash8=${GITHUB_SHA::8}
+        commit_link="[$commit_hash8](https://github.com/$GITHUB_REPOSITORY/tree/$commit_hash8)"
+        echo -e "> [!Note]" >> README.md
+        echo -e "> " >> README.md
+        echo -e "> Commit: $commit_link" >> README.md
+        echo -e "" >> README.md
+
+        # テスト対象外のファイルに関する注記を追加（ファイルの存在確認結果に基づく）
+        commit_hash=${GITHUB_SHA}
+        file_path_1="ton_txns_data_conv/staking/ton_whales_staking_dashboard.py"
+        file_path_2="staking/ton_whales_staking_dashboard.py"
+        # 後述するカバレッジレポートのリンク修正のためプログラムのソースコードディレクトリを除いたリンクにする
+        file_link="https://github.com/$GITHUB_REPOSITORY/blob/$commit_hash/$file_path_2"
+
+        if [[ "${{ needs.check_file.outputs.file_exists }}" == "true" ]]; then
+          echo -e "> [!Important]" >> README.md
+          echo -e "> The following file is intentionally excluded from test coverage:" >> README.md
+          echo -e "> - [$file_path_1]($file_link)" >> README.md
           echo -e "> " >> README.md
-          echo -e "> Commit: $commit_link" >> README.md
-          echo -e "" >> README.md
+          echo -e "> This file contains complex external dependencies and is verified through manual and integration testing." >> README.md
+          echo -e "> " >> README.md
+        else
+          echo "Note: File $file_path_1 not found. Skipping addition to README.md." >&2
+        fi
 
-          # テスト対象外のファイルに関する注記を追加（ファイルの存在確認結果に基づく）
-          commit_hash=${GITHUB_SHA}
-          file_path_1="ton_txns_data_conv/staking/ton_whales_staking_dashboard.py"
-          file_path_2="staking/ton_whales_staking_dashboard.py"
-          # 後述するカバレッジレポートのリンク修正のためプログラムのソースコードディレクトリを除いたリンクにする
-          file_link="https://github.com/$GITHUB_REPOSITORY/blob/$commit_hash/$file_path_2"
-
-          if [[ "${{ needs.check_file.outputs.file_exists }}" == "true" ]]; then
-            echo -e "> [!Important]" >> README.md
-            echo -e "> The following file is intentionally excluded from test coverage:" >> README.md
-            echo -e "> - [$file_path_1]($file_link)" >> README.md
-            echo -e "> " >> README.md
-            echo -e "> This file contains complex external dependencies and is verified through manual and integration testing." >> README.md
-            echo -e "> " >> README.md
-          else
-            echo "Note: File $file_path_1 not found. Skipping addition to README.md." >&2
-          fi
-
-          # macOS、Ubuntuの各OSとPythonバージョンごとにカバレッジレポートを追加
-          for os in macos-13 ubuntu-latest; do
-            for version in 3.11 3.12; do
-              echo "## Coverage Report (os: $os / python-version: $version)" >> README.md
-              if [ -f "coverage-data-$os-$version/summary-report.md" ]; then
-                sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/g' -e 's/\\\\/\\/g' -e 's/\\n/\n/g' -e 's/\r$//' "coverage-data-$os-$version/summary-report.md" |
-                sed -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g' |
-                sed '/^$/N;/^\n$/D' |
-                sed -e 's/^"//' -e 's/"$//' >> README.md
-              else
-                echo "No summary report found for $os - $version" >> README.md
-              fi
-              echo "" >> README.md
-            done
+        # macOS、Ubuntuの各OSとPythonバージョンごとにカバレッジレポートを追加
+        for os in macos-13 ubuntu-latest; do
+          for version in 3.11 3.12; do
+            echo "## Coverage Report (os: $os / python-version: $version)" >> README.md
+            if [ -f "coverage-data-$os-$version/summary-report.md" ]; then
+              sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/g' -e 's/\\\\/\\/g' -e 's/\\n/\n/g' -e 's/\r$//' "coverage-data-$os-$version/summary-report.md" |
+              sed -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g' |
+              sed '/^$/N;/^\n$/D' |
+              sed -e 's/^"//' -e 's/"$//' >> README.md
+            else
+              echo "No summary report found for $os - $version" >> README.md
+            fi
+            echo "" >> README.md
           done
+        done
 
-          # カバレッジレポート内のリンクを有効にするためにファイルパスを修正する
-          sed -i '
-            s|/blob/\([a-f0-9]*\)/\([^"]*\)|/blob/\1/ton_txns_data_conv/\2|g;
-            s|/blob/\([a-f0-9]*\)/ton_txns_data_conv/README\.md|/blob/\1/README.md|g
-          ' README.md
-      - name: Commit and push
-        run: |
-          # Gitのユーザー設定とコミット、ブランチへのプッシュ
-          git config --local user.email "33836132+github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add README.md
-          git commit -m "Update coverage for all environments"
-          git push origin coverage
+        # カバレッジレポート内のリンクを有効にするためにファイルパスを修正する
+        sed -i '
+          s|/blob/\([a-f0-9]*\)/\([^"]*\)|/blob/\1/ton_txns_data_conv/\2|g;
+          s|/blob/\([a-f0-9]*\)/ton_txns_data_conv/README\.md|/blob/\1/README.md|g
+        ' README.md
+    - name: Commit and push
+      run: |
+        # Gitのユーザー設定とコミット、ブランチへのプッシュ
+        git config --local user.email "33836132+github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add README.md
+        git commit -m "Update coverage for all environments"
+        git push origin coverage
 
   check_all_tests:
     needs: test
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Check test results
-        if: contains(needs.test.result, 'failure')
-        run: |
-          echo "Some tests failed. Please check the test results and fix any issues before merging."
-          exit 1
+    - name: Check test results
+      if: contains(needs.test.result, 'failure')
+      run: |
+        echo "Some tests failed. Please check the test results and fix any issues before merging."
+        exit 1
