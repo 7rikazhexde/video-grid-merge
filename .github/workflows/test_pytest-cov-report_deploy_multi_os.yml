@@ -172,7 +172,7 @@ jobs:
                   "fields": [
                     {
                       "name": "Workflow Details",
-                      "value": "[View on GitHub](" + $workflow + ")"
+                      "value": "[View on GitHub](\($workflow))"
                     }
                   ]
                 }
@@ -213,7 +213,7 @@ jobs:
                   "fields": [
                     {
                       "name": "Workflow Details",
-                      "value": "[View on GitHub](" + $workflow + ")"
+                      "value": "[View on GitHub](\($workflow))"
                     }
                   ]
                 }
