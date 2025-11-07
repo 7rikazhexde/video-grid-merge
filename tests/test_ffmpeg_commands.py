@@ -75,7 +75,9 @@ def test_create_ffmpeg_command_v1_empty_input() -> None:
     assert command == ""
 
 
-def test_create_ffmpeg_command_v1_invalid_video_size(tmp_path: Any, monkeypatch: Any) -> None:
+def test_create_ffmpeg_command_v1_invalid_video_size(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
     # Create an empty file
     invalid_file = tmp_path / "invalid.mp4"
     invalid_file.touch()
@@ -145,7 +147,9 @@ def test_create_ffmpeg_command_v2_empty_input() -> None:
     assert command == ""
 
 
-def test_create_ffmpeg_command_v2_invalid_video_size(tmp_path: Any, monkeypatch: Any) -> None:
+def test_create_ffmpeg_command_v2_invalid_video_size(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
     # Create an empty file
     invalid_file = tmp_path / "invalid.mp4"
     invalid_file.touch()

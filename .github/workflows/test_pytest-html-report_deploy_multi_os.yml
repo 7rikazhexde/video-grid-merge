@@ -142,26 +142,87 @@ jobs:
           echo "url_list<<EOF" >> $GITHUB_OUTPUT
           echo -e "$URL_LIST" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      - name: Send LINE Notify
+      - name: Send Discord Notification (Updated)
         if: env.DEPLOY_STATUS == 'updated'
         env:
-          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           message="pytest-html report deployment completed. Changes were made.
 
-          Check URLs:
+          **Check URLs:**
           ${{ steps.generate_url_list.outputs.url_list }}"
 
-          curl -X POST https://notify-api.line.me/api/notify \
-            -H "Authorization: Bearer $LINE_NOTIFY_TOKEN" \
-            -F "message=${message}"
-      - name: Send LINE Notify (No Changes)
+          timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          json_payload=$(jq -n \
+            --arg title "pytest-cov Report Deployment" \
+            --arg description "$message" \
+            --arg workflow "$workflow_url" \
+            --argjson color 65280 \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [
+                {
+                  "title": $title,
+                  "description": $description,
+                  "color": $color,
+                  "timestamp": $timestamp,
+                  "fields": [
+                    {
+                      "name": "Workflow Details",
+                      "value": "[View on GitHub](" + $workflow + ")"
+                    }
+                  ]
+                }
+              ]
+            }')
+
+          if [[ ! $DISCORD_WEBHOOK_URL =~ ^https://discord(app)?.com/api/webhooks/ ]]; then
+            echo "Error: Invalid Discord webhook URL format. Please check your secret configuration."
+            exit 1
+          fi
+
+          curl -X POST -H "Content-Type: application/json" \
+            -d "$json_payload" \
+            "$DISCORD_WEBHOOK_URL"
+
+      - name: Send Discord Notification (No Changes)
         if: env.DEPLOY_STATUS == 'unchanged'
         env:
-          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           message="pytest-html report check completed. No changes were necessary."
 
-          curl -X POST https://notify-api.line.me/api/notify \
-            -H "Authorization: Bearer $LINE_NOTIFY_TOKEN" \
-            -F "message=${message}"
+          timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          json_payload=$(jq -n \
+            --arg title "pytest-cov Report Check" \
+            --arg description "$message" \
+            --arg workflow "$workflow_url" \
+            --argjson color 8421504 \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [
+                {
+                  "title": $title,
+                  "description": $description,
+                  "color": $color,
+                  "timestamp": $timestamp,
+                  "fields": [
+                    {
+                      "name": "Workflow Details",
+                      "value": "[View on GitHub](" + $workflow + ")"
+                    }
+                  ]
+                }
+              ]
+            }')
+
+          if [[ ! $DISCORD_WEBHOOK_URL =~ ^https://discord(app)?.com/api/webhooks/ ]]; then
+            echo "Error: Invalid Discord webhook URL format. Please check your secret configuration."
+            exit 1
+          fi
+
+          curl -X POST -H "Content-Type: application/json" \
+            -d "$json_payload" \
+            "$DISCORD_WEBHOOK_URL"
