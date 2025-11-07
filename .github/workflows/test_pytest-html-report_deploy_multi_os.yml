@@ -136,7 +136,15 @@ jobs:
         REPO_NAME=${REPO_INFO[1]}
         URL_LIST=""
         for os in ubuntu-latest macos-13; do
-          URL_LIST="${URL_LIST}pytest-html-report_${os}:\n\
+          # OSごとの絵文字設定
+          case "${os}" in
+            "ubuntu-latest") os_emoji="🐧" ;;
+            "macos-13"|"macos-latest") os_emoji="🍎" ;;
+            "windows-latest") os_emoji="🪟" ;;
+            *) os_emoji="💻" ;;
+          esac
+          # URLリストに追加
+          URL_LIST="${URL_LIST}${os_emoji} pytest-html-report_${os}:\n\
         https://${REPO_OWNER}.github.io/${REPO_NAME}/pytest-html-report_${os}/report_page.html\n\n"
         done
         echo "url_list<<EOF" >> $GITHUB_OUTPUT
@@ -148,14 +156,14 @@ jobs:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: |
         workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        message="pytest-html report deployment completed. Changes were made.
+        message="📊 pytest-html report deployment completed. Changes were made.
 
         **Check URLs:**
         ${{ steps.generate_url_list.outputs.url_list }}"
 
         timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
         json_payload=$(jq -n \
-          --arg title "pytest-cov Report Deployment" \
+          --arg title "📊 pytest-html Report Deployment" \
           --arg description "$message" \
           --arg workflow "$workflow_url" \
           --argjson color 65280 \
@@ -192,11 +200,11 @@ jobs:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: |-
         workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        message="pytest-html report check completed. No changes were necessary."
+        message="📊 pytest-html report check completed. No changes were necessary."
 
         timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
         json_payload=$(jq -n \
-          --arg title "pytest-cov Report Check" \
+          --arg title "📊 pytest-html Report Check" \
           --arg description "$message" \
           --arg workflow "$workflow_url" \
           --argjson color 8421504 \
